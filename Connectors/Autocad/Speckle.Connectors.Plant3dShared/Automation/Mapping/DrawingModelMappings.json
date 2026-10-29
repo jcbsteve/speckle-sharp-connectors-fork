@@ -1,0 +1,90 @@
+[
+  {
+    "DrawingGuid": "943a6a4c-6357-433d-99dc-f6631ee336b6",
+    "RelativePath": "Plant 3D Models\\JAC-L-40-00-002.dwg",
+    "ModelId": "234e9da2cb",
+    "ModelName": "Plant 3D Models/JAC-L-40-00-002",
+    "ProjectId": "e7ae24fb7b",
+    "WorkspaceId": "d6e3044f69",
+    "WorkspaceSlug": "lifesciences",
+    "AccountId": "458A1B4F1ACA1CDFCA186353B627F1F8",
+    "ServerUrl": "https://design.jacobs.com"
+  },
+  {
+    "DrawingGuid": "b517c4f0-7186-44b4-838d-deb97f394744",
+    "RelativePath": "Plant 3D Models\\JAC-L-30-10-002.dwg",
+    "ModelId": "90cb5de439",
+    "ModelName": "Plant 3D Models/JAC-L-30-10-002",
+    "ProjectId": "e7ae24fb7b",
+    "WorkspaceId": "d6e3044f69",
+    "WorkspaceSlug": "lifesciences",
+    "AccountId": "458A1B4F1ACA1CDFCA186353B627F1F8",
+    "ServerUrl": "https://design.jacobs.com"
+  },
+  {
+    "DrawingGuid": "9fea9d7d-9950-48ba-922b-5f35a66cae16",
+    "RelativePath": "Plant 3D Models\\JAC-L-10-00-001.dwg",
+    "ModelId": "70265956f5",
+    "ModelName": "Plant 3D Models/JAC-L-10-00-001",
+    "ProjectId": "e7ae24fb7b",
+    "WorkspaceId": "d6e3044f69",
+    "WorkspaceSlug": "lifesciences",
+    "AccountId": "458A1B4F1ACA1CDFCA186353B627F1F8",
+    "ServerUrl": "https://design.jacobs.com"
+  },
+  {
+    "DrawingGuid": "216bce4f-87c3-4506-893f-f3af3a380f53",
+    "RelativePath": "Plant 3D Models\\TestFolder\\TestSubFolder\\SAM-T0001.dwg",
+    "ModelId": "fefa73c65b",
+    "ModelName": "Plant 3D Models/TestFolder/TestSubFolder/SAM-T0001",
+    "ProjectId": "e7ae24fb7b",
+    "WorkspaceId": "d6e3044f69",
+    "WorkspaceSlug": "lifesciences",
+    "AccountId": "458A1B4F1ACA1CDFCA186353B627F1F8",
+    "ServerUrl": "https://design.jacobs.com"
+  },
+  {
+    "DrawingGuid": "72a68fb3-6f9d-4569-8133-e8969889c09b",
+    "RelativePath": "PID DWG\\SAM-T0001.dwg",
+    "ModelId": "abb5944651",
+    "ModelName": "PID DWG/SAM-T0001",
+    "ProjectId": "e7ae24fb7b",
+    "WorkspaceId": "d6e3044f69",
+    "WorkspaceSlug": "lifesciences",
+    "AccountId": "458A1B4F1ACA1CDFCA186353B627F1F8",
+    "ServerUrl": "https://design.jacobs.com"
+  },
+  {
+    "DrawingGuid": "9ed48c33-e03e-4598-9c6d-46023acf9c2b",
+    "RelativePath": "PID DWG\\SAM-T0003.dwg",
+    "ModelId": "0514c56df8",
+    "ModelName": "PID DWG/SAM-T0003",
+    "ProjectId": "e7ae24fb7b",
+    "WorkspaceId": "d6e3044f69",
+    "WorkspaceSlug": "lifesciences",
+    "AccountId": "458A1B4F1ACA1CDFCA186353B627F1F8",
+    "ServerUrl": "https://design.jacobs.com"
+  },
+  {
+    "DrawingGuid": "7d0de42e-8f08-4c3e-81f0-4bbf65547fd6",
+    "RelativePath": "PID DWG\\SAM-T0009.dwg",
+    "ModelId": "3f2b4a5b34",
+    "ModelName": "PID DWG/SAM-T0009",
+    "ProjectId": "e7ae24fb7b",
+    "WorkspaceId": "d6e3044f69",
+    "WorkspaceSlug": "lifesciences",
+    "AccountId": "458A1B4F1ACA1CDFCA186353B627F1F8",
+    "ServerUrl": "https://design.jacobs.com"
+  },
+  {
+    "DrawingGuid": "37fc8e04-7137-4de4-b673-6ab098b537d8",
+    "RelativePath": "PID DWG\\SAM-T0002.dwg",
+    "ModelId": "75bb0f0ad5",
+    "ModelName": "PID DWG/SAM-T0002",
+    "ProjectId": "e7ae24fb7b",
+    "WorkspaceId": "d6e3044f69",
+    "WorkspaceSlug": "lifesciences",
+    "AccountId": "458A1B4F1ACA1CDFCA186353B627F1F8",
+    "ServerUrl": "https://design.jacobs.com"
+  }
+]

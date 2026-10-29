@@ -1,0 +1,2 @@
+﻿(load "C:/git/speckle-sharp-connectors-jacobs/Connectors/Autocad/Speckle.Connectors.Plant3dShared/Automation/Scripts/pub.lsp")
+(startup)

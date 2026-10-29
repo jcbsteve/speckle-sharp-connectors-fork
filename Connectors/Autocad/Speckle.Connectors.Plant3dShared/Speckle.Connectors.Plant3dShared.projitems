@@ -9,6 +9,27 @@
     <Import_RootNamespace>Speckle.Connectors.Plant3dShared</Import_RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Bridge\AutomationBrowserBridgeDecorator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Documents\IPlant3dDocumentResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Documents\Plant3dDocumentResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Documents\Plant3dPublishDocumentScope.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Documents\Plant3dPublishDocumentScopeException.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Drawings\IPlant3dModelSpaceObjectIdProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Drawings\IPlant3dProjectDrawingsProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Drawings\Plant3dModelSpaceObjectIdProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Drawings\Plant3dProjectDrawingsProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\EditorLoggerProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\FileLoggerProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\IMessageWriter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\IPlant3dEditor.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\Plant3dEditor.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Mapping\DrawingModelMapping.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Mapping\IPlant3dDrawingModelMappingResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Mapping\Plant3dDrawingModelMappingResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\ModelCards\ModelCardWriter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Publishing\DrawingToPublish.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Publishing\Plant3dAutomationPublishResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Publishing\Plant3dAutomationService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DependencyInjection\Plant3dConnectorModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Operations\Send\Plant3dRootObjectBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Bindings\Plant3dSendBinding.cs" />
@@ -16,5 +37,16 @@
   <ItemGroup>
     <Folder Include="$(MSBuildThisFileDirectory)DependencyInjection\" />
     <Folder Include="$(MSBuildThisFileDirectory)Operations\Send\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)Automation\readme.md" />
+    <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\list.ps1" />
+    <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub.lsp" />
+    <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub.ps1" />
+    <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub.scr" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="$(MSBuildThisFileDirectory)Automation\Mapping\DrawingModelMappings.json" />
+    <Content Include="$(MSBuildThisFileDirectory)Automation\ModelCards\SenderModelCard.json" />
   </ItemGroup>
 </Project>

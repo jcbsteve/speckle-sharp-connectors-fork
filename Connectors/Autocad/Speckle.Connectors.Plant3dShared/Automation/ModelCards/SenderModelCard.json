@@ -1,0 +1,20 @@
+﻿{
+  "AccountId": "458A1B4F1ACA1CDFCA186353B627F1F8",
+  "ProjectId": "e7ae24fb7b",
+  "ModelId": "925e7262ef",
+  "ServerUrl": "https://design.jacobs.com",
+  "WorkspaceSlug": "lifesciences",
+  "WorkspaceId": "d6e3044f69",
+  "typeDiscriminator": "SenderModelCard",
+  "Settings": [],
+  "ModelCardId": "00000000000000000001",
+  "SendFilter": {
+    "Id": "selection",
+    "Name": "Selection",
+    "Type": "Selection",
+    "Summary": "1 objects (Asset)",
+    "IsDefault": true,
+    "SelectedObjectIds": [ "321752" ],
+    "typeDiscriminator": "AutocadSelectionFilter"
+  }
+}
