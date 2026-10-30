@@ -67,7 +67,7 @@ namespace Speckle.Connectors.Autocad.Operations.Send;
   "CA1506:Avoid excessive class coupling",
   Justification = "One builder serves AutoCAD, Civil3D and Plant3D, so it touches all three verticals' types."
 )]
-public class AutocadArtifactRootObjectBuilder(
+public partial class AutocadArtifactRootObjectBuilder(
   IRootToSpeckleConverter converter,
   IConverterSettingsStore<AutocadConversionSettings> converterSettings,
   AutocadInstanceUnpacker instanceUnpacker,
@@ -483,6 +483,7 @@ public class AutocadArtifactRootObjectBuilder(
     EmitValueNodes(pipeline, model, geometryKsByObjectId, instanceKByObjectId, layerCollectionKByName);
     EmitGroups(pipeline, model.Groups, definitionMemberIds);
     EmitCivilNetworkTopology(pipeline, model.Objects);
+    EmitVerticalRelations(pipeline, model.Objects, definitionMemberIds);
     EmitModelPlacement(pipeline, model);
     EmitAdditionalNodes(pipeline);
 
@@ -1025,6 +1026,13 @@ public class AutocadArtifactRootObjectBuilder(
   }
 
   protected virtual void EmitAdditionalNodes(ObjectsArtifactPipeline pipeline) { }
+
+  // Implemented per vertical (e.g. Plant3dShared); compiled out where unimplemented.
+  partial void EmitVerticalRelations(
+    ObjectsArtifactPipeline pipeline,
+    IReadOnlyList<CollectedObject> objects,
+    HashSet<string> definitionMemberIds
+  );
 
   // modelPlacement.* — same contract as the Revit producer: transform / options.*.transform map WCS (the drawing's
   // internal frame) → that datum's space and are emitted regardless of baking; appliedToGeometry says whether the
