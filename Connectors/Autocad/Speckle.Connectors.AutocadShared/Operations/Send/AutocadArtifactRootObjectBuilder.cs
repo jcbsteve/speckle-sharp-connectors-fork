@@ -205,6 +205,10 @@ public partial class AutocadArtifactRootObjectBuilder(
     // Authored scene groups → plain snapshot records (Base-free — no GroupProxy). Membership lists OBJECT ids.
     var groups = CollectGroups(atomicObjects);
 
+    // Vertical-specific data that needs the host API (e.g. Plant 3D line-group rows) → plain dictionaries.
+    var verticalProperties = new Dictionary<string, Dictionary<string, object?>>(StringComparer.Ordinal);
+    CollectVerticalData(collectedObjects, verticalProperties);
+
     return new CollectedModel(
       units,
       collectedObjects,
@@ -219,7 +223,8 @@ public partial class AutocadArtifactRootObjectBuilder(
       converterSettings.Current.ModelPlacementSource,
       converterSettings.Current.ModelPlacementOptions,
       converterSettings.Current.CoordinateMetadata,
-      results
+      results,
+      verticalProperties
     );
   }
 
@@ -483,7 +488,7 @@ public partial class AutocadArtifactRootObjectBuilder(
     EmitValueNodes(pipeline, model, geometryKsByObjectId, instanceKByObjectId, layerCollectionKByName);
     EmitGroups(pipeline, model.Groups, definitionMemberIds);
     EmitCivilNetworkTopology(pipeline, model.Objects);
-    EmitVerticalRelations(pipeline, model.Objects, definitionMemberIds);
+    EmitVerticalRelations(pipeline, model, definitionMemberIds);
     EmitModelPlacement(pipeline, model);
     EmitAdditionalNodes(pipeline);
 
@@ -1028,9 +1033,16 @@ public partial class AutocadArtifactRootObjectBuilder(
   protected virtual void EmitAdditionalNodes(ObjectsArtifactPipeline pipeline) { }
 
   // Implemented per vertical (e.g. Plant3dShared); compiled out where unimplemented.
+  // Phase 1 (UI thread): gathers host-API-bound vertical data, keyed by a vertical-defined id.
+  partial void CollectVerticalData(
+    IReadOnlyList<CollectedObject> objects,
+    Dictionary<string, Dictionary<string, object?>> verticalProperties
+  );
+
+  // Phase 2 (worker thread): emits vertical relations from the pure-Speckle snapshot.
   partial void EmitVerticalRelations(
     ObjectsArtifactPipeline pipeline,
-    IReadOnlyList<CollectedObject> objects,
+    CollectedModel model,
     HashSet<string> definitionMemberIds
   );
 
@@ -1254,7 +1266,9 @@ public partial class AutocadArtifactRootObjectBuilder(
     string ModelPlacementSource,
     IReadOnlyDictionary<string, Matrix3d>? ModelPlacementOptions,
     IReadOnlyDictionary<string, AutocadModelProperty>? CoordinateMetadata,
-    IReadOnlyList<SendConversionResult> Results
+    IReadOnlyList<SendConversionResult> Results,
+    // vertical-defined id → properties collected by CollectVerticalData (e.g. Plant 3D line groups)
+    IReadOnlyDictionary<string, Dictionary<string, object?>> VerticalProperties
   );
 
   private sealed record BundleResult(
