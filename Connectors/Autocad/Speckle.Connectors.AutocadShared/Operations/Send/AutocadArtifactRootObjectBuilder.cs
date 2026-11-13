@@ -212,14 +212,11 @@ public partial class AutocadArtifactRootObjectBuilder(
     var groups = CollectGroups(atomicObjects);
 
     // Vertical-specific objects (e.g. Plant 3D line groups) are an optional extra: a failure here must not discard
-    // the already-converted model. Collected into a scratch list so a mid-way failure leaves no partial objects.
-    // Runs after material/colour unpacking and the all-failed check, so these objects carry no material/colour
-    // edges and don't count toward conversion success.
+    // the already-converted model. Runs after material/colour unpacking and the all-failed check, so these objects
+    // carry no material/colour edges and don't count toward conversion success.
     try
     {
-      var verticalObjects = new List<CollectedObject>();
-      CollectVerticalObjects(verticalObjects);
-      collectedObjects.AddRange(verticalObjects);
+      CollectVerticalObjects(collectedObjects);
     }
     catch (Exception ex) when (!ex.IsFatal())
     {
