@@ -211,9 +211,20 @@ public partial class AutocadArtifactRootObjectBuilder(
     // Authored scene groups → plain snapshot records (Base-free — no GroupProxy). Membership lists OBJECT ids.
     var groups = CollectGroups(atomicObjects);
 
-    // Vertical-specific data that needs the host API (e.g. Plant 3D line-group rows) → plain dictionaries.
-    var verticalProperties = new Dictionary<string, Dictionary<string, object?>>(StringComparer.Ordinal);
-    CollectVerticalData(collectedObjects, verticalProperties);
+    // Vertical-specific objects (e.g. Plant 3D line groups) are an optional extra: a failure here must not discard
+    // the already-converted model. Collected into a scratch list so a mid-way failure leaves no partial objects.
+    // Runs after material/colour unpacking and the all-failed check, so these objects carry no material/colour
+    // edges and don't count toward conversion success.
+    try
+    {
+      var verticalObjects = new List<CollectedObject>();
+      CollectVerticalObjects(verticalObjects);
+      collectedObjects.AddRange(verticalObjects);
+    }
+    catch (Exception ex) when (!ex.IsFatal())
+    {
+      logger.LogWarning(ex, "Failed to collect vertical-specific objects; continuing without them");
+    }
 
     return new CollectedModel(
       units,
@@ -229,8 +240,7 @@ public partial class AutocadArtifactRootObjectBuilder(
       converterSettings.Current.ModelPlacementSource,
       converterSettings.Current.ModelPlacementOptions,
       converterSettings.Current.CoordinateMetadata,
-      results,
-      verticalProperties
+      results
     );
   }
 
@@ -494,7 +504,19 @@ public partial class AutocadArtifactRootObjectBuilder(
     EmitValueNodes(pipeline, model, geometryKsByObjectId, instanceKByObjectId, layerCollectionKByName);
     EmitGroups(pipeline, model.Groups, definitionMemberIds);
     EmitCivilNetworkTopology(pipeline, model.Objects);
-    EmitVerticalRelations(pipeline, model, definitionMemberIds);
+
+    // Vertical-specific relations (e.g. Plant 3D line-group membership). Runs after the object loop so every
+    // collected object, vertical ones included, is already emitted. Optional like its collect step: a failure
+    // here must not fail the send.
+    try
+    {
+      EmitVerticalRelations(pipeline, model, definitionMemberIds);
+    }
+    catch (Exception ex) when (!ex.IsFatal())
+    {
+      logger.LogWarning(ex, "Failed to emit vertical-specific relations; continuing without them");
+    }
+
     EmitModelPlacement(pipeline, model);
     EmitAdditionalNodes(pipeline);
 
@@ -1038,14 +1060,17 @@ public partial class AutocadArtifactRootObjectBuilder(
 
   protected virtual void EmitAdditionalNodes(ObjectsArtifactPipeline pipeline) { }
 
-  // Implemented per vertical (e.g. Plant3dShared); compiled out where unimplemented.
-  // Phase 1 (UI thread): gathers host-API-bound vertical data, keyed by a vertical-defined id.
-  partial void CollectVerticalData(
-    IReadOnlyList<CollectedObject> objects,
-    Dictionary<string, Dictionary<string, object?>> verticalProperties
-  );
+  // Phase 1 (UI thread, host API available): lets a vertical (a host variant compiled into this shared project, e.g.
+  // Plant 3D) append extra objects to the snapshot — e.g. geometry-less line groups. Must leave plain, Base-free
+  // records only; phase 2 cannot touch the host API. Failures are logged and swallowed, never failing the send.
+  // A partial method (not virtual) because verticals share this class via the shared project rather than subclassing;
+  // compiled out where unimplemented.
+  partial void CollectVerticalObjects(List<CollectedObject> objects);
 
-  // Phase 2 (worker thread): emits vertical relations from the pure-Speckle snapshot.
+  // Phase 2 (worker thread, pure-Speckle snapshot only): lets a vertical emit its own relations and supporting
+  // nodes (e.g. CONTAINER nodes + membership edges) into the bundle. Objects in definitionMemberIds are block-definition
+  // members and must not receive scene edges (same rule as IN_COLLECTION / IN_GROUP).
+  // Compiled out where unimplemented.
   partial void EmitVerticalRelations(
     ObjectsArtifactPipeline pipeline,
     CollectedModel model,
@@ -1272,9 +1297,7 @@ public partial class AutocadArtifactRootObjectBuilder(
     string ModelPlacementSource,
     IReadOnlyDictionary<string, Matrix3d>? ModelPlacementOptions,
     IReadOnlyDictionary<string, AutocadModelProperty>? CoordinateMetadata,
-    IReadOnlyList<SendConversionResult> Results,
-    // vertical-defined id → properties collected by CollectVerticalData (e.g. Plant 3D line groups)
-    IReadOnlyDictionary<string, Dictionary<string, object?>> VerticalProperties
+    IReadOnlyList<SendConversionResult> Results
   );
 
   private sealed record BundleResult(

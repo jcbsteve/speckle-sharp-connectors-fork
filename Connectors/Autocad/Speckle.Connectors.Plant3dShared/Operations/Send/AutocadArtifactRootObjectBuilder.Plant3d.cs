@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
+using Speckle.Objects.Data;
 using Speckle.Objects.Utils;
 using Speckle.Sdk;
 using PPDL = Autodesk.ProcessPower.DataLinks;
@@ -11,175 +12,158 @@ namespace Speckle.Connectors.Autocad.Operations.Send;
 public partial class AutocadArtifactRootObjectBuilder
 {
   private static readonly string[] s_plant3dKeys = ["P&ID", "Plant3D Data"];
+  private const string LINE_GROUP_OBJECT_SUFFIX = ":object"; // keeps the group's object id distinct from its container id
 
-  private const string LINE_GROUP_SPECKLE_TYPE = "Objects.Data.DataObject";
-
-  // Line groups (P&ID PipeLineGroup / SignalLineGroup, 3D piping LineGroup) own no geometry: the group's own Data Links
-  // row is read here (UI thread, DataLinks is document-bound) so phase 2 can publish it as a geometry-less object.
-  partial void CollectVerticalData(
-    IReadOnlyList<CollectedObject> objects,
-    Dictionary<string, Dictionary<string, object?>> verticalProperties
-  )
+  // ── Phase 1: collect line-group objects (UI thread) ──
+  // No geometry; they carry the group's Data Links properties.
+  partial void CollectVerticalObjects(List<CollectedObject> objects)
   {
-    PPDL.DataLinksManager? dataLinksManager = null;
+    var collectedGroupKeys = new HashSet<string>(StringComparer.Ordinal);
+    var lineGroupObjects = new List<CollectedObject>();
+
+    if (!TryGetDataLinksManager(out var dataLinksManager))
+    {
+      return;
+    }
+
     foreach (var co in objects)
     {
       if (
-        !TryGetPlant3dDataManager(co.Properties, out var dataManager)
-        || !TryGetLineGroup(dataManager, out string groupKey, out int groupId, out _)
-        || verticalProperties.ContainsKey(groupKey)
+        !TryGetDataManagerProperties(co.Properties, out var dataManagerProperties)
+        || !TryGetLineGroup(dataManagerProperties, out var group)
+        || !collectedGroupKeys.Add(group.Key)
       )
       {
         continue;
       }
 
-      dataLinksManager ??= PPDL.DataLinksManager.GetManager(converterSettings.Current.Document.Database);
-      if (dataLinksManager is null)
-      {
-        return;
-      }
+      var properties = ReadDataLinksProperties(dataLinksManager, group.Id);
+      properties["Group Id"] = group.Id;
+      properties["Group Type"] = group.Type;
+      properties["Line Number"] = group.LineNumber;
 
-      var properties = new Dictionary<string, object?>();
-      try
+      var lineGroupObject = new DataObject
       {
-        var rowProperties = dataLinksManager.GetAllProperties(groupId, true);
-        if (rowProperties is not null)
-        {
-          foreach (var kvp in rowProperties)
-          {
-            properties[kvp.Key ?? "unknown"] = kvp.Value;
-          }
-        }
-      }
-      catch (Exception ex) when (!ex.IsFatal())
-      {
-        logger.LogWarning(ex, "Failed to read Data Links properties for line group {GroupId}", groupId);
-      }
+        name = group.Name,
+        properties = properties,
+        displayValue = [],
+        applicationId = group.ObjectId,
+      };
 
-      verticalProperties[groupKey] = properties;
+      // Layer: the first member's layer keeps it in the default IN_COLLECTION scene view.
+      lineGroupObjects.Add(
+        new CollectedObject(lineGroupObject.applicationId, group.Type, co.LayerName, properties, lineGroupObject)
+      );
     }
+
+    objects.AddRange(lineGroupObjects);
   }
 
-  // Plant 3D Data Manager → relations, grounded in the "Data Manager" props written by Plant3dDataExtractor:
-  //   IN_SYSTEM  part → CONTAINER("MEP System") named by Line Number; the line group's own object (no geometry,
-  //              carrying its Data Links properties) joins the same container, so group ↔ segments navigate via it.
-  //   class tree part → leaf CONTAINER("Group"), each level def_ref'd to its parent (nesting is a column, not an edge).
+  private bool TryGetDataLinksManager([NotNullWhen(true)] out PPDL.DataLinksManager? dataLinksManager)
+  {
+    try
+    {
+      dataLinksManager = PPDL.DataLinksManager.GetManager(converterSettings.Current.Document.Database);
+    }
+    catch (Exception ex) when (!ex.IsFatal())
+    {
+      logger.LogWarning(ex, "Plant 3D DataLinksManager unavailable");
+      dataLinksManager = null;
+    }
+
+    return dataLinksManager is not null;
+  }
+
+  // Must run on the UI thread (DataLinks is document-bound).
+  private Dictionary<string, object?> ReadDataLinksProperties(PPDL.DataLinksManager dataLinksManager, int rowId)
+  {
+    var properties = new Dictionary<string, object?>(StringComparer.Ordinal);
+    try
+    {
+      var rowProperties = dataLinksManager.GetAllProperties(rowId, true);
+      if (rowProperties is not null)
+      {
+        foreach (var kvp in rowProperties)
+        {
+          properties[kvp.Key ?? "unknown"] = kvp.Value;
+        }
+      }
+    }
+    catch (Exception ex) when (!ex.IsFatal())
+    {
+      logger.LogWarning(ex, "Failed to read Data Links properties for line group {GroupId}", rowId);
+    }
+
+    return properties;
+  }
+
+  // ── Phase 2: emit relations (worker thread) ──
+  // Builds relations from the "Data Manager" properties written by Plant3dDataExtractor:
+  //   IN_SYSTEM: part → "MEP System" container per line group; the group's own object joins it too.
+  //   Class tree: part → leaf "Group" container; each level def_refs its parent.
   partial void EmitVerticalRelations(
     ObjectsArtifactPipeline pipeline,
     CollectedModel model,
     HashSet<string> definitionMemberIds
   )
   {
-    var lineGroupKById = new Dictionary<string, int>(StringComparer.Ordinal);
+    var lineGroupKByKey = new Dictionary<string, int>(StringComparer.Ordinal);
     var classKByPath = new Dictionary<string, int>(StringComparer.Ordinal);
+    var collectedObjectIds = model.Objects.Select(o => o.ApplicationId).ToHashSet(StringComparer.Ordinal);
 
     foreach (var co in model.Objects)
     {
       if (
-        definitionMemberIds.Contains(co.ApplicationId) || !TryGetPlant3dDataManager(co.Properties, out var dataManager)
+        definitionMemberIds.Contains(co.ApplicationId)
+        || !TryGetDataManagerProperties(co.Properties, out var dataManagerProperties)
       )
       {
         continue;
       }
 
-      int objK = pipeline.InternObject(co.ApplicationId);
-
-      AddLineGroupAsSystem(pipeline, model, dataManager, lineGroupKById, objK);
-      AddClassHierarchyAsNestedGroups(pipeline, dataManager, classKByPath, objK);
+      var objK = pipeline.InternObject(co.ApplicationId);
+      AddLineGroupAsSystem(pipeline, dataManagerProperties, lineGroupKByKey, collectedObjectIds, objK);
+      AddClassHierarchyAsGroups(pipeline, dataManagerProperties, classKByPath, objK);
     }
   }
 
   private static void AddLineGroupAsSystem(
     ObjectsArtifactPipeline pipeline,
-    CollectedModel model,
-    IReadOnlyDictionary<string, object?> dataManager,
-    Dictionary<string, int> lineGroupKById,
+    IReadOnlyDictionary<string, object?> dataManagerProperties,
+    Dictionary<string, int> lineGroupKByKey,
+    HashSet<string> collectedObjectIds,
     int objK
   )
   {
-    if (!TryGetLineGroup(dataManager, out string groupKey, out int groupId, out string groupType))
+    if (!TryGetLineGroup(dataManagerProperties, out var group))
     {
       return;
     }
 
-    if (!lineGroupKById.TryGetValue(groupKey, out int groupK))
+    if (!lineGroupKByKey.TryGetValue(group.Key, out var groupK))
     {
-      string lineNumber = (dataManager.TryGetValue("Line Number", out var ln) ? ln as string : null) ?? groupKey;
-      if (string.IsNullOrWhiteSpace(lineNumber))
+      groupK = pipeline.AddContainer(group.Key, new SpecContainer(group.Name, null, "MEP System", null));
+      lineGroupKByKey[group.Key] = groupK;
+
+      // Link the group's own object only if phase 1 emitted it; never intern a placeholder.
+      var objectId = group.ObjectId;
+      if (collectedObjectIds.Contains(objectId))
       {
-        lineNumber = $"{groupType} {groupId}";
+        pipeline.InSystem(pipeline.InternObject(objectId), groupK, ord: 0);
       }
-      groupK = pipeline.AddContainer(groupKey, new SpecContainer(lineNumber, null, "MEP System", null));
-      lineGroupKById[groupKey] = groupK;
-
-      AddLineGroupObject(pipeline, model, groupKey, groupId, groupType, lineNumber, groupK);
-    }
-    pipeline.InSystem(objK, groupK, 0);
-  }
-
-  // The bundle has no per-container property store, so the group's properties ride a geometry-less object that is
-  // IN_SYSTEM of the group's own container. Geometry stays solely on the member segments (no duplication).
-  private static void AddLineGroupObject(
-    ObjectsArtifactPipeline pipeline,
-    CollectedModel model,
-    string groupKey,
-    int groupId,
-    string groupType,
-    string lineNumber,
-    int groupK
-  )
-  {
-    var properties = model.VerticalProperties.TryGetValue(groupKey, out var collected)
-      ? new Dictionary<string, object?>(collected)
-      : new Dictionary<string, object?>();
-    properties["Group Id"] = groupId;
-    properties["Group Type"] = groupType;
-    properties["Line Number"] = lineNumber;
-
-    string groupObjectId = $"p3d-linegroup:{groupType}:{groupId}";
-    int groupObjK = pipeline.InternObject(groupObjectId);
-    pipeline.AddProperties(
-      groupObjectId,
-      properties,
-      RootScalars(LINE_GROUP_SPECKLE_TYPE, lineNumber, model.Units, groupType)
-    );
-    pipeline.InSystem(groupObjK, groupK, 0);
-  }
-
-  private static bool TryGetLineGroup(
-    IReadOnlyDictionary<string, object?> dataManager,
-    out string groupKey,
-    out int groupId,
-    out string groupType
-  )
-  {
-    groupKey = string.Empty;
-    groupId = 0;
-    groupType = string.Empty;
-    if (
-      !dataManager.TryGetValue("Group Id", out var gid)
-      || gid is null
-      || !dataManager.TryGetValue("Group Type", out var gt)
-      || gt is not string type
-    )
-    {
-      return false;
     }
 
-    groupId = Convert.ToInt32(gid, CultureInfo.InvariantCulture);
-    groupType = type;
-    groupKey = $"p3d:{groupType}:{groupId.ToString(CultureInfo.InvariantCulture)}";
-    return groupId > 0;
+    pipeline.InSystem(objK, groupK, ord: 0);
   }
 
-  private static void AddClassHierarchyAsNestedGroups(
+  private static void AddClassHierarchyAsGroups(
     ObjectsArtifactPipeline pipeline,
-    IReadOnlyDictionary<string, object?> dataManager,
+    IReadOnlyDictionary<string, object?> dataManagerProperties,
     Dictionary<string, int> classKByPath,
     int objK
   )
   {
-    var levels = ReadClassLevels(dataManager);
+    var levels = ReadClassLevels(dataManagerProperties);
     if (levels.Count == 0)
     {
       return;
@@ -189,7 +173,7 @@ public partial class AutocadArtifactRootObjectBuilder
     int leafK = -1;
     for (int i = 0; i < levels.Count; i++)
     {
-      string path = "p3d:class:" + string.Join("/", levels.Take(i + 1)); // stable, unique container id
+      var path = "p3d:class:" + string.Join("/", levels.Take(i + 1));
       if (!classKByPath.TryGetValue(path, out leafK))
       {
         leafK = pipeline.AddContainer(path, new SpecContainer(levels[i], parentK, "Group", null));
@@ -197,22 +181,50 @@ public partial class AutocadArtifactRootObjectBuilder
       }
       parentK = leafK;
     }
+
     pipeline.InGroup(objK, leafK, 0);
   }
 
-  private static List<string> ReadClassLevels(IReadOnlyDictionary<string, object?> dataManager)
+  private static List<string> ReadClassLevels(IReadOnlyDictionary<string, object?> dataManagerProperties)
   {
     var levels = new List<string>();
-    for (int i = 1; dataManager.TryGetValue($"Level {i}", out var lvl) && lvl is string s; i++)
+    for (int i = 1; dataManagerProperties.TryGetValue($"Level {i}", out var lvl) && lvl is string s; i++)
     {
       levels.Add(s);
     }
     return levels;
   }
 
-  private static bool TryGetPlant3dDataManager(
+  private readonly record struct LineGroup(int Id, string Type, string LineNumber)
+  {
+    public string Key { get; } = $"p3d:{Type}:{Id.ToString(CultureInfo.InvariantCulture)}";
+    public string Name =>
+      string.IsNullOrWhiteSpace(LineNumber) ? $"{Type} {Id.ToString(CultureInfo.InvariantCulture)}" : LineNumber;
+    public string ObjectId => Key + LINE_GROUP_OBJECT_SUFFIX;
+  }
+
+  private static bool TryGetLineGroup(IReadOnlyDictionary<string, object?> dataManagerProperties, out LineGroup group)
+  {
+    if (
+      !dataManagerProperties.TryGetValue("Group Id", out var gid)
+      || gid is not int id
+      || id <= 0
+      || !dataManagerProperties.TryGetValue("Group Type", out var gt)
+      || gt is not string type
+    )
+    {
+      group = default;
+      return false;
+    }
+
+    var lineNumber = dataManagerProperties.GetValueOrDefault("Line Number")?.ToString() ?? "";
+    group = new LineGroup(id, type, lineNumber);
+    return true;
+  }
+
+  private static bool TryGetDataManagerProperties(
     IReadOnlyDictionary<string, object?> properties,
-    [NotNullWhen(true)] out IReadOnlyDictionary<string, object?>? dataManager
+    [NotNullWhen(true)] out IReadOnlyDictionary<string, object?>? dataManagerProperties
   )
   {
     foreach (var plant3dKey in s_plant3dKeys)
@@ -222,12 +234,12 @@ public partial class AutocadArtifactRootObjectBuilder
         && TryGetDictionary(propertyGroup, "Data Manager", out var value)
       )
       {
-        dataManager = value;
+        dataManagerProperties = value;
         return true;
       }
     }
 
-    dataManager = null;
+    dataManagerProperties = null;
     return false;
   }
 
