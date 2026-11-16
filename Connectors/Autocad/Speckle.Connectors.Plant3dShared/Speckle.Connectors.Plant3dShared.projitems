@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Bridge\AutomationBrowserBridgeDecorator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\DependencyInjection\Plant3dAutomationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Documents\IPlant3dDocumentResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Documents\Plant3dDocumentResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Documents\Plant3dPublishDocumentScope.cs" />
@@ -27,14 +28,16 @@
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Mapping\IPlant3dDrawingModelMappingResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Mapping\Plant3dDrawingModelMappingResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\ModelCards\ModelCardWriter.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Automation\Publishing\DrawingToPublish.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Automation\Publishing\Plant3dAutomationPublishResult.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Automation\Publishing\Plant3dAutomationService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Commands\Plant3dAutomationCommand.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\DrawingToPublish.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dAutomationPublishResult.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dAutomationService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DependencyInjection\Plant3dConnectorModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Operations\Send\Plant3dRootObjectBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Bindings\Plant3dSendBinding.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="$(MSBuildThisFileDirectory)Automation\Commands\" />
     <Folder Include="$(MSBuildThisFileDirectory)DependencyInjection\" />
     <Folder Include="$(MSBuildThisFileDirectory)Operations\Send\" />
   </ItemGroup>
