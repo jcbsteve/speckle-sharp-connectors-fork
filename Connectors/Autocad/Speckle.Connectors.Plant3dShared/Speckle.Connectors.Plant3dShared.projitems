@@ -19,8 +19,8 @@
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Drawings\IPlant3dProjectDrawingsProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Drawings\Plant3dModelSpaceObjectIdProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Drawings\Plant3dProjectDrawingsProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\EditorLoggerProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\FileLoggerProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Logging\EditorLoggerProvider.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Logging\FileLoggerProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\IMessageWriter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\IPlant3dEditor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\Plant3dEditor.cs" />
@@ -38,6 +38,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="$(MSBuildThisFileDirectory)Automation\Commands\" />
+    <Folder Include="$(MSBuildThisFileDirectory)Automation\Logging\" />
     <Folder Include="$(MSBuildThisFileDirectory)DependencyInjection\" />
     <Folder Include="$(MSBuildThisFileDirectory)Operations\Send\" />
   </ItemGroup>
