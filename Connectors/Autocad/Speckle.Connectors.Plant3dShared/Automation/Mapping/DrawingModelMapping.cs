@@ -13,6 +13,7 @@ namespace Speckle.Connectors.Plant3dShared.Automation;
 /// <param name="WorkspaceSlug">Workspace slug.</param>
 /// <param name="AccountId">Account id to publish with.</param>
 /// <param name="ServerUrl">Server the model lives on.</param>
+/// <param name="AlwaysPublish">When true, the drawing is published on every run regardless of change detection.</param>
 public sealed record DrawingModelMapping(
   Guid DrawingGuid,
   string RelativePath,
@@ -22,7 +23,8 @@ public sealed record DrawingModelMapping(
   string WorkspaceId,
   string WorkspaceSlug,
   string AccountId,
-  Uri ServerUrl
+  Uri ServerUrl,
+  bool AlwaysPublish = false
 )
 {
   /// <summary>
@@ -41,7 +43,8 @@ public sealed record DrawingModelMapping(
     string workspaceId,
     string workspaceSlug,
     string accountId,
-    string serverUrl
+    string serverUrl,
+    bool alwaysPublish = false
   )
     : this(
       drawingGuid,
@@ -52,6 +55,7 @@ public sealed record DrawingModelMapping(
       workspaceId,
       workspaceSlug,
       accountId,
-      new Uri(serverUrl)
+      new Uri(serverUrl),
+      alwaysPublish
     ) { }
 }

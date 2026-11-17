@@ -36,7 +36,11 @@ public class Plant3dAutomationCommand
       var results = await automationService.PublishAsync();
       foreach (var result in results)
       {
-        if (!result.Executed)
+        if (result.IsUnchanged)
+        {
+          logger.LogInformation("Unchanged '{path}', not published.", result.DrawingPath);
+        }
+        else if (!result.Executed)
         {
           logger.LogError("Unable to publish '{path}': {error}", result.DrawingPath, result.ErrorMessage);
         }
@@ -53,6 +57,15 @@ public class Plant3dAutomationCommand
           logger.LogError("Publish failed for '{path}': {error}", result.DrawingPath, result.ErrorMessage);
         }
       }
+
+      logger.LogInformation(
+        "Publish summary: {published} published, {unchanged} unchanged, {failed} failed, {notOpened} not opened. Force: {force}.",
+        results.Count(r => r.Executed && r.Succeeded),
+        results.Count(r => r.IsUnchanged),
+        results.Count(r => r.Executed && !r.Succeeded),
+        results.Count(r => !r.Executed && !r.IsUnchanged),
+        Container.GetRequiredService<Plant3dPublishOptions>().Force
+      );
     }
     catch (OperationCanceledException)
     {

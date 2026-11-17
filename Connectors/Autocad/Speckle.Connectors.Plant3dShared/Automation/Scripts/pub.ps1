@@ -1,5 +1,7 @@
 ﻿$env:PLANT_PROJECT = "C:\Users\SuttonS4\AppData\Local\Autodesk\AutoCAD Plant 3D\CollaborationCache\Plant3D_Speckle\Project.xml"
 $env:PLANT_DRAWING_MAPPINGS = "C:\git\SpecklePoc\SpeckleModelSync\bin\Debug\net10.0\DrawingModelMappings.json"
+# Optional: publish all mapped drawings even when unchanged.
+# $env:PLANT_PUBLISH_FORCE = "true"
 
 
 & "C:\Program Files\Autodesk\AutoCAD 2026\acad.exe" `

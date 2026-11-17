@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Speckle.Connectors.DUI.Bindings;
+using Speckle.Sdk;
 using Speckle.Sdk.Credentials;
 
 namespace Speckle.Connectors.Plant3dShared.Automation;
@@ -16,6 +17,9 @@ public sealed class Plant3dAutomationService(
   IPlant3dDocumentResolver documentResolver,
   IPlant3dModelSpaceObjectIdProvider objectIdProvider,
   IAccountManager accountManager,
+  Plant3dDrawingChangeDetector changeDetector,
+  IPlant3dModelVersionService versionService,
+  Plant3dPublishOptions options,
   ILogger<Plant3dAutomationService> logger
 )
 {
@@ -62,11 +66,44 @@ public sealed class Plant3dAutomationService(
       return [];
     }
 
+    if (options.Force)
+    {
+      logger.LogInformation("Force publish is active. All mapped drawings will be published.");
+    }
+
     List<Plant3dAutomationPublishResult> results = [];
     foreach (var drawingToPublish in MapDrawingsToModels(projectDrawings, mappings, accountId))
     {
+      var decision = await changeDetector.EvaluateAsync(drawingToPublish, CancellationToken.None);
+      if (!decision.ShouldPublish)
+      {
+        if (decision.Reason == PublishReason.Unchanged)
+        {
+          logger.LogInformation("Skip publish of '{name}': {reason}.", drawingToPublish.Name, decision.Reason);
+          results.Add(Plant3dAutomationPublishResult.Unchanged(drawingToPublish.DrawingGuid, drawingToPublish.FullPath));
+        }
+        else
+        {
+          results.Add(
+            Plant3dAutomationPublishResult.ServerCheckFailed(
+              drawingToPublish.DrawingGuid,
+              drawingToPublish.FullPath,
+              decision.ErrorMessage ?? "Change detection failed."
+            )
+          );
+        }
+
+        continue;
+      }
+
+      logger.LogInformation("Publish '{name}': {reason}.", drawingToPublish.Name, decision.Reason);
       var result = await PublishDrawingAsync(automationBridge, drawingToPublish);
-      results.Add(result);
+      if (result.Succeeded)
+      {
+        await TagVersionAsync(drawingToPublish, decision, result.VersionId);
+      }
+
+      results.Add(result with { Reason = decision.Reason });
     }
 
     if (results.Count == 0)
@@ -160,7 +197,8 @@ public sealed class Plant3dAutomationService(
           mapping.ModelId,
           mapping.WorkspaceId,
           mapping.WorkspaceSlug,
-          mapping.ServerUrl
+          mapping.ServerUrl,
+          mapping.AlwaysPublish
         );
       }
       else
@@ -239,6 +277,40 @@ public sealed class Plant3dAutomationService(
     finally
     {
       automationBridge.Clear(modelCardId);
+    }
+  }
+
+  /// <summary>
+  /// Writes the drawing fingerprint to the published version's message. A failure does not fail the publish; the
+  /// drawing is simply published again on the next run.
+  /// </summary>
+  private async Task TagVersionAsync(DrawingToPublish drawing, ChangeDecision decision, string? versionId)
+  {
+    if (versionId is null || decision.ContentHash is null)
+    {
+      logger.LogWarning("No version or fingerprint for '{name}'; it will be published again next run.", drawing.Name);
+      return;
+    }
+
+    var tag = new VersionFingerprint(decision.ContentHash, Plant3dPublishSchema.VERSION).ToTag();
+    try
+    {
+      await versionService.UpdateMessageAsync(
+        drawing.AccountId,
+        drawing.ProjectId,
+        versionId,
+        $"Automated publish of {drawing.Name} ({drawing.DrawingGuid})\n{tag}",
+        CancellationToken.None
+      );
+    }
+    catch (Exception ex) when (ex is SpeckleException or HttpRequestException or TimeoutException)
+    {
+      logger.LogWarning(
+        "Could not tag version {versionId} for '{name}': {error}. It will be published again next run.",
+        versionId,
+        drawing.Name,
+        ex.Message
+      );
     }
   }
 

@@ -10,6 +10,14 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Bridge\AutomationBrowserBridgeDecorator.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\ChangeDetection\ChangeDecision.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\ChangeDetection\DrawingFingerprinter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\ChangeDetection\IPlant3dModelVersionService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\ChangeDetection\Plant3dDrawingChangeDetector.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\ChangeDetection\Plant3dModelVersionService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\ChangeDetection\Plant3dPublishOptions.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\ChangeDetection\Plant3dPublishSchema.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\ChangeDetection\VersionFingerprint.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\DependencyInjection\Plant3dAutomationModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Documents\IPlant3dDocumentResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Documents\Plant3dDocumentResolver.cs" />
@@ -21,7 +29,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Drawings\Plant3dProjectDrawingsProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Logging\EditorLoggerProvider.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Logging\FileLoggerProvider.cs" />
-    <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\IMessageWriter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Logging\IMessageWriter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\IPlant3dEditor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Editor\Plant3dEditor.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Mapping\DrawingModelMapping.cs" />
@@ -43,6 +51,8 @@
     <Folder Include="$(MSBuildThisFileDirectory)Operations\Send\" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)Automation\specs\changed-only-publish-design.md" />
+    <None Include="$(MSBuildThisFileDirectory)Automation\specs\changed-only-publish-requirements.md" />
     <None Include="$(MSBuildThisFileDirectory)Automation\readme.md" />
     <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\list.ps1" />
     <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub.lsp" />

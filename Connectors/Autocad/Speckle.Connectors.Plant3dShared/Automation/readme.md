@@ -299,6 +299,29 @@ Output:
 
 - Drawing-to-model mapping file (`DrawingModelMappings.json`).
 
+## Changed-Only Publishing
+
+Unchanged drawings are not opened in Plant 3D; their file is only read (read-only) to compute the hash.
+
+A drawing is published when any of these is true:
+
+- force is active (`PLANT_PUBLISH_FORCE` or `alwaysPublish` on the mapping);
+- the model's latest version has no fingerprint (never published by this feature);
+- the fingerprint's schema differs from `Plant3dPublishSchema.VERSION`;
+- the fingerprint's SHA-256 differs from the drawing file's SHA-256.
+
+The fingerprint is stored on the server in the version message, e.g. `[speckle-plant3d sha256=<HEX> schema=1]`, so no local state is kept. If the server cannot be reached the drawing is skipped and reported as an error.
+
+| Environment variable | Purpose |
+|---|---|
+| `PLANT_PUBLISH_FORCE` | `true`/`1` publishes every mapped drawing. |
+
+Per-mapping force: add `"alwaysPublish": true` to a mapping in `DrawingModelMappings.json`.
+
+Developers: increment `Plant3dPublishSchema.VERSION` when converter output, root object structure or published properties change, so every drawing is republished.
+
+If tagging a version fails after a successful publish, that drawing is simply published again on the next run.
+
 ## Troubleshooting
 
 - `PLANT_PROJECT` missing: startup prints error and exits publish flow.

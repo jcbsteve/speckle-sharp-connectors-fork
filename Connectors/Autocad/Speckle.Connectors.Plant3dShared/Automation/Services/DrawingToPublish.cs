@@ -12,5 +12,6 @@ public sealed record DrawingToPublish(
   string ModelId,
   string WorkspaceId = "",
   string WorkspaceSlug = "",
-  Uri? ServerUrl = null
+  Uri? ServerUrl = null,
+  bool AlwaysPublish = false
 );
