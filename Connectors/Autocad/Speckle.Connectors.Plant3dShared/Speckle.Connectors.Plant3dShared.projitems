@@ -41,6 +41,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dAutomationPublishResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dAutomationService.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)DependencyInjection\Plant3dConnectorModule.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Operations\Send\Plant3dArtifactRootObjectBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Operations\Send\Plant3dRootObjectBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Bindings\Plant3dSendBinding.cs" />
   </ItemGroup>
@@ -48,7 +49,6 @@
     <Folder Include="$(MSBuildThisFileDirectory)Automation\Commands\" />
     <Folder Include="$(MSBuildThisFileDirectory)Automation\Logging\" />
     <Folder Include="$(MSBuildThisFileDirectory)DependencyInjection\" />
-    <Folder Include="$(MSBuildThisFileDirectory)Operations\Send\" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)Automation\specs\changed-only-publish-design.md" />
