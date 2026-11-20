@@ -56,8 +56,6 @@
     <Folder Include="$(MSBuildThisFileDirectory)DependencyInjection\" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub-new.ps1" />
-    <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub.ps1.new" />
     <None Include="$(MSBuildThisFileDirectory)Automation\specs\changed-only-publish-design.md" />
     <None Include="$(MSBuildThisFileDirectory)Automation\specs\changed-only-publish-requirements.md" />
     <None Include="$(MSBuildThisFileDirectory)Automation\readme.md" />
