@@ -36,6 +36,7 @@ public static class Plant3dAutomationModule
     serviceCollection.AddSingleton<ILoggerProvider, FileLoggerProvider>();
     serviceCollection.AddSingleton<Plant3dPublishOptions>();
     serviceCollection.AddSingleton<IPlant3dModelVersionService, Plant3dModelVersionService>();
+    serviceCollection.AddSingleton<IPlant3dIngestionWaiter, Plant3dIngestionWaiter>();
     serviceCollection.AddSingleton<Plant3dDrawingChangeDetector>();
     serviceCollection.AddSingleton<Plant3dAutomationService>();
   }

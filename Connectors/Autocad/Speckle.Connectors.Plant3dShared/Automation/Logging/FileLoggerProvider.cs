@@ -6,9 +6,9 @@ namespace Speckle.Connectors.Plant3dShared.Automation.Logging;
 /// <summary>
 /// Logger provider that writes automation logs to a local file.
 /// </summary>
-public sealed class FileLoggerProvider : ILoggerProvider
+public sealed class FileLoggerProvider(Plant3dPublishOptions options) : ILoggerProvider
 {
-  private readonly string _logFilePath = CreateLogFilePath();
+  private readonly string _logFilePath = CreateLogFilePath(options.RunId);
 
   /// <summary>
   /// Creates a logger instance for the given category.
@@ -21,21 +21,23 @@ public sealed class FileLoggerProvider : ILoggerProvider
   public void Dispose() { }
 
   /// <summary>
-  /// Creates and returns the full path to the log file in a typical per-user location.
+  /// Returns the path of the result file for the run, next to its log file.
   /// </summary>
-  private static string CreateLogFilePath()
-  {
-    var logsDirectory = Path.Combine(
-      Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-      "Speckle",
-      "Logs"
-    );
+  public static string GetResultFilePath(string runId) =>
+    Path.Combine(GetLogsDirectory(), $"plant3d-automation-{runId}.result.json");
 
+  private static string GetLogsDirectory() =>
+    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Speckle", "Logs");
+
+  /// <summary>
+  /// Creates and returns the full path to the run's log file. Every attempt in a run appends to the same file.
+  /// </summary>
+  private static string CreateLogFilePath(string runId)
+  {
+    var logsDirectory = GetLogsDirectory();
     Directory.CreateDirectory(logsDirectory);
 
-    // TODO We may need to check the file for success and retry - therefore need to create a new file each time
-    // File will need to have a predictable name, e.g. project and date?
-    var logFilePath = Path.Combine(logsDirectory, "plant3d-automation.log");
+    var logFilePath = Path.Combine(logsDirectory, $"plant3d-automation-{runId}.log");
     if (!File.Exists(logFilePath))
     {
       using var _ = File.Create(logFilePath);

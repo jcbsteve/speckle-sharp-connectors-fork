@@ -13,9 +13,8 @@
       (command "-openproject" project)
       (command "-openproject" project)
 
-      (command "SPECKLEPUBLISH")
-
-      (princ "\nAutomation complete. Check for published version message.\n")
+      ;; The batch command writes the result file and closes Plant 3D when it finishes.
+      (command "-SPECKLEPUBLISH")
     )
     ;; Else print out the missing variables
     (progn

@@ -33,11 +33,6 @@ public sealed class Plant3dDrawingChangeDetector(
       return new ChangeDecision(true, PublishReason.FileUnavailable);
     }
 
-    if (options.Force || drawing.AlwaysPublish)
-    {
-      return new ChangeDecision(true, PublishReason.Forced, contentHash);
-    }
-
     LatestVersionInfo? latest;
     try
     {
@@ -56,7 +51,21 @@ public sealed class Plant3dDrawingChangeDetector(
       );
     }
 
-    var reason = VersionFingerprint.TryParse(latest?.Message) switch
+    var fingerprint = VersionFingerprint.TryParse(latest?.Message);
+
+    if (options.Force || drawing.AlwaysPublish)
+    {
+      // A retry within the same run must not publish a forced drawing a second time.
+      var publishedInRun =
+        options.TagRunId is not null
+        && fingerprint?.RunId == options.TagRunId
+        && fingerprint.ContentHash == contentHash;
+      return publishedInRun
+        ? new ChangeDecision(false, PublishReason.AlreadyPublishedInRun, contentHash)
+        : new ChangeDecision(true, PublishReason.Forced, contentHash);
+    }
+
+    var reason = fingerprint switch
     {
       null => PublishReason.NeverPublished,
       { Schema: var schema } when schema != Plant3dPublishSchema.VERSION => PublishReason.SchemaChanged,

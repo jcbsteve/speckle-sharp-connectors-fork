@@ -40,6 +40,11 @@
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\DrawingToPublish.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dAutomationPublishResult.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dAutomationService.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dConfigException.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dFailureClassifier.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dIngestionWaiter.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dRunResult.cs" />
+    <None Include="$(MSBuildThisFileDirectory)Automation\specs\changed-only-publish-design-plan.md" />
     <Compile Include="$(MSBuildThisFileDirectory)DependencyInjection\Plant3dConnectorModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Operations\Send\Plant3dArtifactRootObjectBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Operations\Send\Plant3dRootObjectBuilder.cs" />
@@ -51,6 +56,8 @@
     <Folder Include="$(MSBuildThisFileDirectory)DependencyInjection\" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub-new.ps1" />
+    <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub.ps1.new" />
     <None Include="$(MSBuildThisFileDirectory)Automation\specs\changed-only-publish-design.md" />
     <None Include="$(MSBuildThisFileDirectory)Automation\specs\changed-only-publish-requirements.md" />
     <None Include="$(MSBuildThisFileDirectory)Automation\readme.md" />
@@ -58,9 +65,11 @@
     <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub.lsp" />
     <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub.ps1" />
     <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\pub.scr" />
+    <None Include="$(MSBuildThisFileDirectory)Automation\specs\publish-retry-tasks.md" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)Automation\Mapping\DrawingModelMappings.json" />
     <Content Include="$(MSBuildThisFileDirectory)Automation\ModelCards\SenderModelCard.json" />
+    <Content Include="$(MSBuildThisFileDirectory)Automation\Scripts\pubtmp.txt" />
   </ItemGroup>
 </Project>

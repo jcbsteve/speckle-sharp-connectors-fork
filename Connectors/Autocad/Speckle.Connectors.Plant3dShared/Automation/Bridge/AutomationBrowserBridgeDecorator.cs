@@ -51,9 +51,10 @@ public sealed class AutomationBrowserBridgeDecorator(BrowserBridge inner) : IBro
     {
       var modelCardId = ReadStringProperty(data, "modelCardId");
       var versionId = ReadStringProperty(data, "versionId");
+      var ingestionId = ReadStringProperty(data, "ingestionId");
       if (!string.IsNullOrWhiteSpace(modelCardId) && _pending.TryGetValue(modelCardId, out var tcs))
       {
-        tcs.TrySetResult(new AutomationSendResult(true, versionId, null));
+        tcs.TrySetResult(new AutomationSendResult(true, versionId, null, ingestionId));
       }
     }
     else if (eventName == SET_MODEL_ERROR)
@@ -110,4 +111,9 @@ public sealed class AutomationBrowserBridgeDecorator(BrowserBridge inner) : IBro
   }
 }
 
-public sealed record AutomationSendResult(bool Succeeded, string? VersionId, string? ErrorMessage);
+public sealed record AutomationSendResult(
+  bool Succeeded,
+  string? VersionId,
+  string? ErrorMessage,
+  string? IngestionId = null
+);

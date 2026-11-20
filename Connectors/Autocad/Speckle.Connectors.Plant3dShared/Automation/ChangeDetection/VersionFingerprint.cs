@@ -8,16 +8,18 @@ namespace Speckle.Connectors.Plant3dShared.Automation;
 /// </summary>
 /// <param name="ContentHash">Uppercase hex SHA-256 of the drawing file.</param>
 /// <param name="Schema">The <see cref="Plant3dPublishSchema.VERSION"/> the version was published with.</param>
-public sealed record VersionFingerprint(string ContentHash, int Schema)
+/// <param name="RunId">The automated run that published the version, or null when not published by a batch run.</param>
+public sealed record VersionFingerprint(string ContentHash, int Schema, string? RunId = null)
 {
   private static readonly Regex s_tag = new(
-    @"\[speckle-plant3d sha256=(?<hash>[0-9A-Fa-f]{64}) schema=(?<schema>\d+)\]",
+    @"\[speckle-plant3d sha256=(?<hash>[0-9A-Fa-f]{64}) schema=(?<schema>\d+)(?: run=(?<run>[A-Za-z0-9_-]+))?\]",
     RegexOptions.Compiled | RegexOptions.CultureInvariant,
     TimeSpan.FromSeconds(1)
   );
 
   public string ToTag() =>
-    $"[speckle-plant3d sha256={ContentHash} schema={Schema.ToString(CultureInfo.InvariantCulture)}]";
+    $"[speckle-plant3d sha256={ContentHash} schema={Schema.ToString(CultureInfo.InvariantCulture)}"
+    + (RunId is null ? "]" : $" run={RunId}]");
 
   /// <summary>Parses the fingerprint tag from a version message, or returns null when there is none.</summary>
   public static VersionFingerprint? TryParse(string? message)
@@ -28,7 +30,11 @@ public sealed record VersionFingerprint(string ContentHash, int Schema)
     }
 
     return int.TryParse(match.Groups["schema"].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var schema)
-      ? new VersionFingerprint(match.Groups["hash"].Value.ToUpperInvariant(), schema)
+      ? new VersionFingerprint(
+        match.Groups["hash"].Value.ToUpperInvariant(),
+        schema,
+        match.Groups["run"].Success ? match.Groups["run"].Value : null
+      )
       : null;
   }
 }

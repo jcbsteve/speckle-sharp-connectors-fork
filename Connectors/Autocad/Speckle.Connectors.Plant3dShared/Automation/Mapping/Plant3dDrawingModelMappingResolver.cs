@@ -10,6 +10,7 @@ namespace Speckle.Connectors.Plant3dShared.Automation;
 public sealed class Plant3dDrawingModelMappingResolver(
   IJsonSerializer jsonSerializer,
   IPlant3dEditor editor,
+  Plant3dPublishOptions options,
   ILogger<Plant3dDrawingModelMappingResolver> logger
 ) : IPlant3dDrawingModelMappingResolver
 {
@@ -25,22 +26,30 @@ public sealed class Plant3dDrawingModelMappingResolver(
 
   public string? GetMappingsPath()
   {
-    var mappingsPath = Environment.GetEnvironmentVariable(MAPPINGS_ENV_VAR);
-    if (!string.IsNullOrWhiteSpace(mappingsPath))
+    var envMappingsPath = Environment.GetEnvironmentVariable(MAPPINGS_ENV_VAR);
+    var hasEnvPath = !string.IsNullOrWhiteSpace(envMappingsPath);
+    if (!options.AllowPrompts)
     {
-      return mappingsPath;
+      return hasEnvPath
+        ? envMappingsPath
+        : throw new Plant3dConfigException($"The {MAPPINGS_ENV_VAR} environment variable is not set.");
     }
 
-    logger.LogWarning(
-      "No drawing model mappings file specified in the {MAPPINGS_ENV_VAR} environment variable.",
-      MAPPINGS_ENV_VAR
-    );
-    logger.LogWarning("Default mappings path is {DefaultMappingsPath}.", _defaultMappingsPath);
+    // Interactive runs always confirm the path; the env var, when set, is offered as the default.
+    var defaultPath = hasEnvPath ? envMappingsPath! : _defaultMappingsPath;
+    if (!hasEnvPath)
+    {
+      logger.LogWarning(
+        "No drawing model mappings file specified in the {MAPPINGS_ENV_VAR} environment variable.",
+        MAPPINGS_ENV_VAR
+      );
+    }
+    logger.LogInformation("Default mappings path is {DefaultMappingsPath}.", defaultPath);
 
     var useDefault = editor.GetKeywords("Use default drawing model mappings path [Yes/No]", ["Yes", "No"]);
     return useDefault switch
     {
-      "Yes" => _defaultMappingsPath,
+      "Yes" => defaultPath,
       "No" => AskForMappingsPath(),
       _ => null,
     };

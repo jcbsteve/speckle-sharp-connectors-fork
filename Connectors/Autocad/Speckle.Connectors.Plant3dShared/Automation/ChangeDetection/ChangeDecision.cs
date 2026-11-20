@@ -12,6 +12,7 @@ public enum PublishReason
   ContentChanged,
   ServerCheckFailed,
   Unchanged,
+  AlreadyPublishedInRun,
 }
 
 /// <summary>

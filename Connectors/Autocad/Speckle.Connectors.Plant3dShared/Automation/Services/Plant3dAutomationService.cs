@@ -19,6 +19,7 @@ public sealed class Plant3dAutomationService(
   IAccountManager accountManager,
   Plant3dDrawingChangeDetector changeDetector,
   IPlant3dModelVersionService versionService,
+  IPlant3dIngestionWaiter ingestionWaiter,
   Plant3dPublishOptions options,
   ILogger<Plant3dAutomationService> logger
 )
@@ -27,91 +28,141 @@ public sealed class Plant3dAutomationService(
   /// Enumerates all drawings in the current Plant 3D project, matches them against the configured
   /// drawing-to-model mappings by drawing GUID, and publishes each match using a newly created sender model card.
   /// </summary>
+  /// <exception cref="Plant3dConfigException">The mappings, account or project are invalid.</exception>
   public async Task<IReadOnlyList<Plant3dAutomationPublishResult>> PublishAsync()
   {
-    var mappingsPath = mappingResolver.GetMappingsPath();
-    if (mappingsPath is null)
-    {
-      logger.LogWarning("No drawing model mappings path specified.");
-      return [];
-    }
+    var mappingsPath =
+      mappingResolver.GetMappingsPath()
+      ?? throw new Plant3dConfigException("No drawing model mappings path specified.");
 
     logger.LogInformation("Using drawing model mappings file '{mappingsPath}'.", mappingsPath);
 
     var mappings = mappingResolver.DeserializeMappings(mappingsPath);
     if (mappings.Count == 0)
     {
-      logger.LogWarning("The drawing model mappings file '{mappingsPath}' contains no mappings.", mappingsPath);
-      return [];
+      throw new Plant3dConfigException($"The drawing model mappings file '{mappingsPath}' contains no mappings.");
     }
 
     var projectDrawings = drawingsProvider.GetProjectDrawings();
     if (projectDrawings.Count == 0)
     {
-      logger.LogWarning("No drawings found in the current Plant 3D project.");
-      return [];
+      throw new Plant3dConfigException("No drawings found in the current Plant 3D project.");
     }
 
     if (!IsMappingValid(mappings))
     {
-      logger.LogWarning("Invalid drawing model mappings.");
-      return [];
+      throw new Plant3dConfigException("Invalid drawing model mappings.");
     }
 
     var automationBridge = SetUpAutomationBridge();
-    var accountId = GetAccountId(mappings[0]);
-    if (accountId is null)
+    var accountId =
+      GetAccountId(mappings[0]) ?? throw new Plant3dConfigException($"No account found for {mappings[0].ServerUrl}.");
+
+    var drawingsToPublish = MapDrawingsToModels(projectDrawings, mappings, accountId).ToList();
+    if (drawingsToPublish.Count == 0)
     {
-      logger.LogWarning("No account found for {serverUrl}.", mappings[0].ServerUrl);
-      return [];
+      throw new Plant3dConfigException("No project drawings matched the configured drawing model mappings.");
     }
 
     if (options.Force)
     {
-      logger.LogInformation("Force publish is active. All mapped drawings will be published.");
+      logger.LogInformation("Force publish is active. All mapped drawings will be published once in this run.");
     }
 
     List<Plant3dAutomationPublishResult> results = [];
-    foreach (var drawingToPublish in MapDrawingsToModels(projectDrawings, mappings, accountId))
+    foreach (var drawingToPublish in drawingsToPublish)
     {
-      var decision = await changeDetector.EvaluateAsync(drawingToPublish, CancellationToken.None);
-      if (!decision.ShouldPublish)
+      if (options.IsPastCutoff(DateTimeOffset.UtcNow))
       {
-        if (decision.Reason == PublishReason.Unchanged)
-        {
-          logger.LogInformation("Skip publish of '{name}': {reason}.", drawingToPublish.Name, decision.Reason);
-          results.Add(Plant3dAutomationPublishResult.Unchanged(drawingToPublish.DrawingGuid, drawingToPublish.FullPath));
-        }
-        else
-        {
-          results.Add(
-            Plant3dAutomationPublishResult.ServerCheckFailed(
-              drawingToPublish.DrawingGuid,
-              drawingToPublish.FullPath,
-              decision.ErrorMessage ?? "Change detection failed."
-            )
-          );
-        }
-
+        logger.LogWarning("Deadline reached. '{name}' was not attempted.", drawingToPublish.Name);
+        results.Add(Plant3dAutomationPublishResult.Cancelled(drawingToPublish.DrawingGuid, drawingToPublish.FullPath));
         continue;
       }
 
-      logger.LogInformation("Publish '{name}': {reason}.", drawingToPublish.Name, decision.Reason);
-      var result = await PublishDrawingAsync(automationBridge, drawingToPublish);
-      if (result.Succeeded)
-      {
-        await TagVersionAsync(drawingToPublish, decision, result.VersionId);
-      }
-
-      results.Add(result with { Reason = decision.Reason });
-    }
-
-    if (results.Count == 0)
-    {
-      logger.LogWarning("No project drawings matched the configured drawing model mappings.");
+      results.Add(await PublishWithRetriesAsync(automationBridge, drawingToPublish));
     }
 
     return results;
+  }
+
+  /// <summary>
+  /// Tries a drawing up to 1 + <see cref="Plant3dPublishOptions.DrawingRetries"/> times, retrying only
+  /// transient failures and never starting a retry after the cut-off.
+  /// </summary>
+  private async Task<Plant3dAutomationPublishResult> PublishWithRetriesAsync(
+    AutomationBrowserBridgeDecorator automationBridge,
+    DrawingToPublish drawing
+  )
+  {
+    var delay = TimeSpan.FromSeconds(5);
+    for (var attempt = 0; ; attempt++)
+    {
+      var result = await TryPublishAsync(automationBridge, drawing);
+      if (
+        result.FailureKind != FailureKind.Transient
+        || attempt >= options.DrawingRetries
+        || options.IsPastCutoff(DateTimeOffset.UtcNow + delay)
+      )
+      {
+        return result;
+      }
+
+      logger.LogWarning(
+        "Transient failure for '{name}': {error}. Retrying in {delay}s.",
+        drawing.Name,
+        result.ErrorMessage,
+        delay.TotalSeconds
+      );
+      await Task.Delay(delay);
+      delay = TimeSpan.FromTicks(delay.Ticks * 3);
+    }
+  }
+
+  private async Task<Plant3dAutomationPublishResult> TryPublishAsync(
+    AutomationBrowserBridgeDecorator automationBridge,
+    DrawingToPublish drawing
+  )
+  {
+    try
+    {
+      var decision = await changeDetector.EvaluateAsync(drawing, CancellationToken.None);
+      if (!decision.ShouldPublish)
+      {
+        logger.LogInformation("Skip publish of '{name}': {reason}.", drawing.Name, decision.Reason);
+        return decision.Reason switch
+        {
+          PublishReason.Unchanged => Plant3dAutomationPublishResult.Unchanged(drawing.DrawingGuid, drawing.FullPath),
+          PublishReason.AlreadyPublishedInRun => Plant3dAutomationPublishResult.AlreadyPublishedInRun(
+            drawing.DrawingGuid,
+            drawing.FullPath
+          ),
+          _ => Plant3dAutomationPublishResult.ServerCheckFailed(
+            drawing.DrawingGuid,
+            drawing.FullPath,
+            decision.ErrorMessage ?? "Change detection failed."
+          ),
+        };
+      }
+
+      logger.LogInformation("Publish '{name}': {reason}.", drawing.Name, decision.Reason);
+      var result = await PublishDrawingAsync(automationBridge, drawing);
+      if (result.Succeeded)
+      {
+        await TagVersionAsync(drawing, decision, result.VersionId);
+      }
+
+      return result with { Reason = decision.Reason };
+    }
+    catch (Exception ex) when (!ex.IsFatal())
+    {
+      logger.LogError(ex, "Publish failed for '{name}'.", drawing.Name);
+      return Plant3dAutomationPublishResult.Failure(
+        drawing.DrawingGuid,
+        drawing.FullPath,
+        ex.Message,
+        Plant3dFailureClassifier.Classify(ex)
+      );
+    }
   }
 
   private bool IsMappingValid(IReadOnlyList<DrawingModelMapping> mappings)
@@ -257,16 +308,42 @@ public sealed class Plant3dAutomationService(
       {
         var error = completion.ErrorMessage ?? "Unknown publish error";
         logger.LogError("Speckle publish failed: {error}", error);
-        return Plant3dAutomationPublishResult.Failure(drawing.DrawingGuid, drawing.FullPath, error);
+        return Plant3dAutomationPublishResult.Failure(
+          drawing.DrawingGuid,
+          drawing.FullPath,
+          error,
+          Plant3dFailureClassifier.Classify(completion.ErrorMessage)
+        );
       }
 
-      logger.LogInformation("Speckle publish succeeded. Version: {versionId}", completion.VersionId);
+      var versionId = completion.VersionId;
+      if (!string.IsNullOrWhiteSpace(completion.IngestionId))
+      {
+        logger.LogInformation("Upload complete for '{name}'. Waiting for server processing.", drawing.Name);
+        try
+        {
+          versionId = await ingestionWaiter.WaitForVersionAsync(
+            drawing.AccountId,
+            drawing.ProjectId,
+            completion.IngestionId,
+            cts.Token
+          );
+        }
+        catch (OperationCanceledException ex)
+        {
+          // Not retried: the upload succeeded, so a re-publish would create a duplicate version.
+          logger.LogWarning("Waiting for '{name}' stopped: {error}", drawing.Name, ex.Message);
+          return Plant3dAutomationPublishResult.Cancelled(drawing.DrawingGuid, drawing.FullPath);
+        }
+      }
+
+      logger.LogInformation("Speckle publish succeeded. Version: {versionId}", versionId);
       return Plant3dAutomationPublishResult.Success(
         drawing.DrawingGuid,
         drawing.FullPath,
         drawing.ProjectId,
         drawing.ModelId,
-        completion.VersionId
+        versionId
       );
     }
     catch
@@ -292,7 +369,7 @@ public sealed class Plant3dAutomationService(
       return;
     }
 
-    var tag = new VersionFingerprint(decision.ContentHash, Plant3dPublishSchema.VERSION).ToTag();
+    var tag = new VersionFingerprint(decision.ContentHash, Plant3dPublishSchema.VERSION, options.TagRunId).ToTag();
     try
     {
       await versionService.UpdateMessageAsync(
