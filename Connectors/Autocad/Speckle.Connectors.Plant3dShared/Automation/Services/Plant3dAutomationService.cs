@@ -136,6 +136,11 @@ public sealed class Plant3dAutomationService(
             drawing.DrawingGuid,
             drawing.FullPath
           ),
+          PublishReason.FileUnavailable => Plant3dAutomationPublishResult.FileUnavailable(
+            drawing.DrawingGuid,
+            drawing.FullPath,
+            decision.ErrorMessage ?? "Drawing file unavailable."
+          ),
           _ => Plant3dAutomationPublishResult.ServerCheckFailed(
             drawing.DrawingGuid,
             drawing.FullPath,
@@ -151,7 +156,10 @@ public sealed class Plant3dAutomationService(
         await TagVersionAsync(drawing, decision, result.VersionId);
       }
 
-      return result with { Reason = decision.Reason };
+      return result with
+      {
+        Reason = decision.Reason,
+      };
     }
     catch (Exception ex) when (!ex.IsFatal())
     {

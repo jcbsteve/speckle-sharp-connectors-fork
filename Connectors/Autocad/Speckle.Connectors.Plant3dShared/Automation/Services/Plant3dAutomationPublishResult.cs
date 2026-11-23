@@ -53,8 +53,18 @@ public sealed record Plant3dAutomationPublishResult(
       FailureKind = FailureKind.Transient,
     };
 
+  public static Plant3dAutomationPublishResult FileUnavailable(Guid drawingGuid, string drawingPath, string error) =>
+    new(drawingGuid, drawingPath, ErrorMessage: error)
+    {
+      Reason = PublishReason.FileUnavailable,
+      FailureKind = FailureKind.Transient,
+    };
+
   public static Plant3dAutomationPublishResult NotOpened(Guid drawingGuid, string drawingPath, string reason) =>
-    new(drawingGuid, drawingPath, ErrorMessage: $"Failed to open drawing: {reason}") { FailureKind = FailureKind.Fatal };
+    new(drawingGuid, drawingPath, ErrorMessage: $"Failed to open drawing: {reason}")
+    {
+      FailureKind = FailureKind.Fatal,
+    };
 
   public static Plant3dAutomationPublishResult NoObjects(Guid drawingGuid, string drawingPath) =>
     new(drawingGuid, drawingPath, ErrorMessage: "No objects found in model space.") { FailureKind = FailureKind.Fatal };

@@ -17,7 +17,11 @@ public sealed class Plant3dDrawingChangeDetector(
   {
     if (!File.Exists(drawing.FullPath))
     {
-      return new ChangeDecision(true, PublishReason.FileUnavailable);
+      return new ChangeDecision(
+        false,
+        PublishReason.FileUnavailable,
+        ErrorMessage: $"File '{drawing.FullPath}' does not exist."
+      );
     }
 
     string contentHash;
@@ -30,7 +34,11 @@ public sealed class Plant3dDrawingChangeDetector(
     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
     {
       logger.LogWarning("Unable to read '{path}' for change detection: {error}", drawing.FullPath, ex.Message);
-      return new ChangeDecision(true, PublishReason.FileUnavailable);
+      return new ChangeDecision(
+        false,
+        PublishReason.FileUnavailable,
+        ErrorMessage: $"Unable to read '{drawing.FullPath}': {ex.Message}"
+      );
     }
 
     LatestVersionInfo? latest;
@@ -40,7 +48,10 @@ public sealed class Plant3dDrawingChangeDetector(
         .GetLatestVersionAsync(drawing.AccountId, drawing.ProjectId, drawing.ModelId, cancellationToken)
         .ConfigureAwait(false);
     }
-    catch (Exception ex) when (ex is SpeckleException or HttpRequestException or TimeoutException)
+    catch (Exception ex)
+      when (ex is SpeckleException or HttpRequestException or TimeoutException
+        || ex is OperationCanceledException && !cancellationToken.IsCancellationRequested
+      )
     {
       // Publishing needs the server too, so a drawing that cannot be checked is skipped and reported as an error.
       return new ChangeDecision(
