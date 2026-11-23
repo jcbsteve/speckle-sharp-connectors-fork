@@ -16,6 +16,9 @@ public sealed class Plant3dPublishOptions
   /// <summary>Time kept before the deadline to finish the current drawing and write the result file.</summary>
   public static readonly TimeSpan DeadlineMargin = TimeSpan.FromMinutes(5);
 
+  /// <summary>Deadline used by the batch command when the script does not supply one.</summary>
+  public static readonly TimeSpan DefaultBatchTimeout = TimeSpan.FromMinutes(120);
+
   private readonly List<string> _warnings = [];
 
   public Plant3dPublishOptions()
@@ -46,7 +49,19 @@ public sealed class Plant3dPublishOptions
   public string? TagRunId => IsBatchRun ? RunId : null;
 
   /// <summary>The script's hard deadline, or null when there is none.</summary>
-  public DateTimeOffset? DeadlineUtc { get; }
+  public DateTimeOffset? DeadlineUtc { get; private set; }
+
+  /// <summary>Applies the batch default when no valid deadline was supplied. Returns true when the default was used.</summary>
+  public bool ApplyDefaultBatchDeadline(DateTimeOffset now)
+  {
+    if (DeadlineUtc is not null)
+    {
+      return false;
+    }
+
+    DeadlineUtc = now + DefaultBatchTimeout;
+    return true;
+  }
 
   /// <summary>The time after which no new drawing or retry is started.</summary>
   public DateTimeOffset? CutoffUtc => DeadlineUtc - DeadlineMargin;

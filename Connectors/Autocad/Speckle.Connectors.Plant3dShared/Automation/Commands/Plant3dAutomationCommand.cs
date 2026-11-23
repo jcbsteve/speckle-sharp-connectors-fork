@@ -55,6 +55,14 @@ public class Plant3dAutomationCommand
     var logger = BuildContainer();
     var options = Container!.GetRequiredService<Plant3dPublishOptions>();
     options.AllowPrompts = false;
+    if (options.ApplyDefaultBatchDeadline(DateTimeOffset.UtcNow))
+    {
+      logger.LogWarning(
+        "{envVar} not set. Using a default deadline of {minutes} minutes.",
+        Plant3dPublishOptions.DEADLINE_ENV_VAR,
+        Plant3dPublishOptions.DefaultBatchTimeout.TotalMinutes
+      );
+    }
     logger.LogInformation(
       "Publish started. Run: {runId}, force: {force}, deadline: {deadline}, drawing retries: {retries}.",
       options.RunId,

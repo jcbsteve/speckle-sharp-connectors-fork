@@ -4,7 +4,7 @@
 
 The Plant 3D Automation Connector provides automated publishing for the Speckle connector running inside the Plant 3D desktop application.
 
-Plant 3D cannot be automated as a headless application because P&ID data is only accessible from the desktop application. Full automation runs Plant 3D from a script, opens a project, and executes the `SPECKLEPUBLISH` command.
+Plant 3D cannot be automated as a headless application because P&ID data is only accessible from the desktop application. Full automation runs Plant 3D from a script, opens a project, and executes the `-SPECKLEPUBLISH` batch command.
 
 Mapped drawings can be published to destination models across different Speckle workspaces and projects.
 
@@ -15,6 +15,20 @@ Mapped drawings can be published to destination models across different Speckle 
 - A drawing-to-model mapping file.
 - Speckle access to the destination workspace/project/model.
 - (Optional, for mapping generation) Plant 3D Report Creator.
+- The automation `Scripts` folder added to the Plant 3D trusted locations (see below).
+
+### Trust the scripts folder
+
+Plant 3D only loads AutoLISP files (`pub.lsp`) without a security prompt when they are in a trusted location. An untrusted folder shows a load warning dialog that blocks an unattended run until it times out.
+
+Add the `Scripts` folder once per machine and user profile:
+
+1. In Plant 3D, open the application menu and select **Options**.
+2. On the **Files** tab, expand **Trusted Locations** and click **Add**.
+3. Browse to the scripts folder, for example `C:\git\speckle-sharp-connectors-fork\Connectors\Autocad\Speckle.Connectors.Plant3dShared\Automation\Scripts`.
+4. Click **OK** and confirm.
+
+The setting is stored in the Plant 3D profile (`TRUSTEDPATHS` system variable). Repeat it if the scripts are moved, the repository is cloned elsewhere or a different Windows user or Plant 3D profile runs the automation.
 
 ## Quick Start
 
@@ -23,7 +37,7 @@ Mapped drawings can be published to destination models across different Speckle 
 ``` mermaid
 flowchart LR
     A[Stage 1<br/>List drawings<br/>Report Creator] --> B[Stage 2<br/>Create drawing-to-model mappings<br/>DrawingModelMappings.json]
-    B --> C[Stage 3<br/>Launch Plant 3D, open project + run SPECKLEPUBLISH]
+    B --> C[Stage 3<br/>Launch Plant 3D, open project + run -SPECKLEPUBLISH]
     C --> D[Project drawings published as models in Speckle]
 ```
 
@@ -47,7 +61,7 @@ $env:PLANT_DRAWING_MAPPINGS = "C:\git\SpeckleModelSync\bin\Debug\net10.0\Drawing
 1. `pub.scr` loads `pub.lsp`.
 2. `startup` reads environment variables.
 3. `startup` opens the Plant project.
-4. `startup` runs `SPECKLEPUBLISH`.
+4. `startup` runs `-SPECKLEPUBLISH`.
 
 ### 4) Verify completion
 
@@ -63,7 +77,7 @@ flowchart LR
     P2[acad.exe<br/>/product PLNT3D /b pub.scr]
     P3[pub.scr<br/>load pub.lsp + startup]
     P4[pub.lsp startup<br/>Read PLANT_PROJECT + PLANT_DRAWING_MAPPINGS]
-    P5[SPECKLEPUBLISH]
+    P5[-SPECKLEPUBLISH]
     P1 --> P2 --> P3 --> P4 --> P5
 ```
 
@@ -89,7 +103,7 @@ Responsibilities:
 - Invoke startup entrypoint.
 
 ```lisp
-(load "C:/git/speckle-sharp-connectors-jacobs/Connectors/Autocad/Speckle.Connectors.Plant3dShared/Automation/pub.lsp")
+(load (strcat (getenv "PLANT_PUBLISH_SCRIPTS_DIR") "\\pub.lsp"))
 (startup)
 ```
 
@@ -98,7 +112,7 @@ Responsibilities:
 Responsibilities:
 - Read required environment variables.
 - Open project.
-- Execute `SPECKLEPUBLISH`.
+- Execute `-SPECKLEPUBLISH`.
 - Print errors for missing inputs.
 
 ```lisp
@@ -117,9 +131,8 @@ Responsibilities:
       (command "-openproject" project)
       (command "-openproject" project)
 
-      (command "SPECKLEPUBLISH")
-
-      (princ "\nAutomation complete. Check for published version message.\n")
+      ;; The batch command writes the result file and closes Plant 3D when it finishes.
+      (command "-SPECKLEPUBLISH")
     )
     ;; Else print out the missing variables
     (progn
@@ -136,13 +149,39 @@ Responsibilities:
 
 ## Environment Variables
 
-### `PLANT_PROJECT` (required)
-Path to Plant 3D `Project.xml` to open before publish.
+### Script and launcher variables
 
-### `PLANT_DRAWING_MAPPINGS` (required)
-Path to mapping JSON used by `SPECKLEPUBLISH` to resolve drawing destinations.
+These variables are used by the launcher chain (`pub.ps1` -> `pub.scr` -> `pub.lsp`) to start Plant 3D, open the project and run the batch command.
 
-If either variable is missing, startup prints an error to the Command Window and publishing does not proceed.
+| Environment variable | Set by | Read by | Purpose |
+|---|---|---|---|
+| `PLANT_PROJECT` | User, in `pub.ps1` | `pub.lsp` (and `pub.ps1` to derive the run ID) | Path to the Plant 3D `Project.xml` opened with `-OPENPROJECT` before publishing. |
+| `PLANT_DRAWING_MAPPINGS` | User, in `pub.ps1` | `pub.lsp` (presence check) and both publish commands | Path to the drawing-to-model mapping JSON used to resolve drawing destinations. |
+| `PLANT_PUBLISH_SCRIPTS_DIR` | `pub.ps1` automatically (`$PSScriptRoot`) | `pub.scr` | Folder containing `pub.lsp`. AutoCAD script files cannot resolve paths relative to themselves, so `pub.scr` loads `pub.lsp` from this folder. Do not set it manually. |
+
+If `PLANT_PROJECT` or `PLANT_DRAWING_MAPPINGS` is missing, `pub.lsp` prints an error to the Command Window and does not run `-SPECKLEPUBLISH`. If `PLANT_PUBLISH_SCRIPTS_DIR` is missing (for example, `pub.scr` launched without `pub.ps1`), `pub.lsp` cannot be loaded.
+
+#### Relevance to the interactive and batch commands
+
+| Environment variable | Interactive `SPECKLEPUBLISH` | Batch `-SPECKLEPUBLISH` |
+|---|---|---|
+| `PLANT_PROJECT` | Not used. Open the project in Plant 3D before running the command. | Not read by the command. `pub.lsp` uses it to open the project before running the command. |
+| `PLANT_DRAWING_MAPPINGS` | Optional. The user is always asked to confirm the mappings path. When set, it is offered as the default; otherwise the default is `%ProgramData%\Speckle\Connectors\Plant3D\DrawingModelMappings.json`. Answering `No` prompts for a path. | Required. No prompt is shown; if it is not set, the run ends with a configuration error (`ConfigError` result status). |
+| `PLANT_PUBLISH_SCRIPTS_DIR` | Not used. | Not read by the command. Only used by `pub.scr` to load `pub.lsp`. |
+
+### Publish command options
+
+These environment variables are read by both publish commands:
+
+- Interactive command: `SPECKLEPUBLISH`
+- Batch command: `-SPECKLEPUBLISH`
+
+| Environment variable | Interactive `SPECKLEPUBLISH` behavior | Batch `-SPECKLEPUBLISH` behavior | Default |
+|---|---|---|---|
+| `PLANT_PUBLISH_FORCE` | If set, no prompt is shown and value controls force mode (`true`/`1` = on). If not set, the user is prompted `Yes/No`. | No prompts. Value controls force mode (`true`/`1` = on). | `false` unless user selects `Yes` in interactive mode. |
+| `PLANT_PUBLISH_RUN_ID` | Optional. If not set, an `interactive-<UTC timestamp>` run ID is generated and used for logging/result naming. Interactive runs do not write the run ID into version tags. | Intended to be set by the launcher script for per-run result and retry correlation. | `interactive-<UTC timestamp>` when missing. |
+| `PLANT_PUBLISH_DEADLINE_UTC` | Optional hard deadline (`DateTimeOffset` value). When missing/invalid there is no deadline. | Optional hard deadline. When missing/invalid, batch applies a default deadline of startup time + 120 minutes and logs a warning. | None for interactive; `+120 minutes` fallback in batch. |
+| `PLANT_PUBLISH_DRAWING_RETRIES` | Extra per-drawing retries for transient failures. | Extra per-drawing retries for transient failures. | `2` when missing/invalid. |
 
 ## Mapping File Contract
 
@@ -219,7 +258,7 @@ The current logging flow targets the Command Window. If required, this can be ex
 flowchart LR
     S1[Stage 1<br/>List drawings<br/>Report Creator export]
     S2[Stage 2<br/>Map drawings to models<br/>Generate DrawingModelMappings.json]
-    S3[Stage 3<br/>Run automation publish<br/>Plant 3D + SPECKLEPUBLISH]
+    S3[Stage 3<br/>Run automation publish<br/>Plant 3D + -SPECKLEPUBLISH]
     S1 --> S2 --> S3
 ```
 
@@ -314,7 +353,8 @@ The fingerprint is stored on the server in the version message, e.g. `[speckle-p
 
 | Environment variable | Purpose |
 |---|---|
-| `PLANT_PUBLISH_FORCE` | `true`/`1` publishes every mapped drawing. |
+| `PLANT_PUBLISH_FORCE` | `true`/`1` publishes every mapped drawing once per run. |
+| `PLANT_PUBLISH_DRAWING_RETRIES` | Extra per-drawing retries for transient failures (default `2`). |
 
 Per-mapping force: add `"alwaysPublish": true` to a mapping in `DrawingModelMappings.json`.
 
@@ -326,7 +366,8 @@ If tagging a version fails after a successful publish, that drawing is simply pu
 
 - `PLANT_PROJECT` missing: startup prints error and exits publish flow.
 - `PLANT_DRAWING_MAPPINGS` missing: startup prints error and exits publish flow.
-- Local project out of sync: connector attempts to refresh/download project parts before publishing.
+- Security warning when loading `pub.lsp`, or the run hangs until it times out: the `Scripts` folder is not a trusted location. See [Trust the scripts folder](#trust-the-scripts-folder).
+- Local project out of sync:
 - Missing model mapping: drawing will not be routed to destination model.
 - Permission issues: ensure account can list projects/models and create models where required.
 
