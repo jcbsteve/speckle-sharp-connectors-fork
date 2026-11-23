@@ -44,6 +44,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dFailureClassifier.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dIngestionWaiter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\Plant3dRunResult.cs" />
+    <None Include="$(MSBuildThisFileDirectory)Automation\Scripts\Show-PlantPublishEnv.ps1" />
     <None Include="$(MSBuildThisFileDirectory)Automation\specs\changed-only-publish-design-plan.md" />
     <Compile Include="$(MSBuildThisFileDirectory)DependencyInjection\Plant3dConnectorModule.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Operations\Send\Plant3dArtifactRootObjectBuilder.cs" />
