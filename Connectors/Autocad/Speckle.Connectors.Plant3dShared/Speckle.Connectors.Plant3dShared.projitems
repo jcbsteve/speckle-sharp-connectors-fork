@@ -35,6 +35,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Mapping\DrawingModelMapping.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Mapping\IPlant3dDrawingModelMappingResolver.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Mapping\Plant3dDrawingModelMappingResolver.cs" />
+    <Compile Include="$(MSBuildThisFileDirectory)Automation\Mapping\Plant3dMappingValidator.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\ModelCards\ModelCardWriter.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Commands\Plant3dAutomationCommand.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Automation\Services\DrawingToPublish.cs" />
@@ -69,6 +70,5 @@
   <ItemGroup>
     <Content Include="$(MSBuildThisFileDirectory)Automation\Mapping\DrawingModelMappings.json" />
     <Content Include="$(MSBuildThisFileDirectory)Automation\ModelCards\SenderModelCard.json" />
-    <Content Include="$(MSBuildThisFileDirectory)Automation\Scripts\pubtmp.txt" />
   </ItemGroup>
 </Project>

@@ -12,7 +12,28 @@ public enum Plant3dRunStatus
   ConfigError,
 }
 
-public sealed record Plant3dRunCounts(int Published, int Unchanged, int AlreadyPublishedInRun, int Failed, int Cancelled);
+public sealed record Plant3dRunCounts(
+  int Published,
+  int Unchanged,
+  int AlreadyPublishedInRun,
+  int Failed,
+  int Cancelled,
+  int MappingsWithoutDrawing,
+  int DrawingsWithoutMapping
+)
+{
+  /// <summary>Counts the drawing results. The single definition used by the result file and the log summary.</summary>
+  public static Plant3dRunCounts From(IReadOnlyList<Plant3dAutomationPublishResult> results) =>
+    new(
+      results.Count(r => r.Executed && r.Succeeded),
+      results.Count(r => r.IsUnchanged),
+      results.Count(r => r.IsAlreadyPublishedInRun),
+      results.Count(r => r.FailureKind is FailureKind.Transient or FailureKind.Fatal),
+      results.Count(r => r.FailureKind == FailureKind.Cancelled),
+      results.Count(r => r.Reason == PublishReason.MappingWithoutDrawing),
+      results.Count(r => r.Reason == PublishReason.DrawingWithoutMapping)
+    );
+}
 
 public sealed record Plant3dRunFailure(
   [property: JsonPropertyName("guid")] Guid DrawingGuid,
@@ -51,13 +72,7 @@ public sealed record Plant3dRunResult(
     string? configError
   )
   {
-    var counts = new Plant3dRunCounts(
-      results.Count(r => r.Executed && r.Succeeded),
-      results.Count(r => r.IsUnchanged),
-      results.Count(r => r.IsAlreadyPublishedInRun),
-      results.Count(r => r.FailureKind is FailureKind.Transient or FailureKind.Fatal),
-      results.Count(r => r.FailureKind == FailureKind.Cancelled)
-    );
+    var counts = Plant3dRunCounts.From(results);
 
     var failures = results
       .Where(r => !r.Succeeded)

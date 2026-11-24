@@ -37,6 +37,9 @@ public sealed record Plant3dAutomationPublishResult(
   /// <summary>True when the drawing was skipped because this run has already published it.</summary>
   public bool IsAlreadyPublishedInRun => Reason == PublishReason.AlreadyPublishedInRun;
 
+  /// <summary>True when the drawing was skipped because the mappings and the project are out of sync.</summary>
+  public bool IsMappingDrift => Reason is PublishReason.MappingWithoutDrawing or PublishReason.DrawingWithoutMapping;
+
   public static Plant3dAutomationPublishResult Unchanged(Guid drawingGuid, string drawingPath) =>
     new(drawingGuid, drawingPath, Succeeded: true) { Reason = PublishReason.Unchanged };
 
@@ -53,17 +56,30 @@ public sealed record Plant3dAutomationPublishResult(
       FailureKind = FailureKind.Transient,
     };
 
+  // Fatal: on an unattended run a missing or unreadable file is unlikely to recover within the retry window.
   public static Plant3dAutomationPublishResult FileUnavailable(Guid drawingGuid, string drawingPath, string error) =>
     new(drawingGuid, drawingPath, ErrorMessage: error)
     {
       Reason = PublishReason.FileUnavailable,
-      FailureKind = FailureKind.Transient,
+      FailureKind = FailureKind.Fatal,
     };
 
   public static Plant3dAutomationPublishResult NotOpened(Guid drawingGuid, string drawingPath, string reason) =>
     new(drawingGuid, drawingPath, ErrorMessage: $"Failed to open drawing: {reason}")
     {
       FailureKind = FailureKind.Fatal,
+    };
+
+  public static Plant3dAutomationPublishResult MappingWithoutDrawing(Guid? drawingGuid, string? drawingPath) =>
+    new(drawingGuid ?? Guid.Empty, drawingPath ?? string.Empty, Succeeded: true)
+    {
+      Reason = PublishReason.MappingWithoutDrawing,
+    };
+
+  public static Plant3dAutomationPublishResult DrawingWithoutMapping(Guid? drawingGuid, string? drawingPath) =>
+    new(drawingGuid ?? Guid.Empty, drawingPath ?? string.Empty, Succeeded: true)
+    {
+      Reason = PublishReason.DrawingWithoutMapping,
     };
 
   public static Plant3dAutomationPublishResult NoObjects(Guid drawingGuid, string drawingPath) =>

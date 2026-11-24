@@ -49,10 +49,7 @@ public sealed class Plant3dAutomationService(
       throw new Plant3dConfigException("No drawings found in the current Plant 3D project.");
     }
 
-    if (!IsMappingValid(mappings))
-    {
-      throw new Plant3dConfigException("Invalid drawing model mappings.");
-    }
+    var issues = ValidateMappings(mappingsPath, mappings, projectDrawings);
 
     var automationBridge = SetUpAutomationBridge();
     var accountId =
@@ -69,7 +66,8 @@ public sealed class Plant3dAutomationService(
       logger.LogInformation("Force publish is active. All mapped drawings will be published once in this run.");
     }
 
-    List<Plant3dAutomationPublishResult> results = [];
+    List<Plant3dAutomationPublishResult> results = [.. GetMappingDriftResults(issues)];
+
     foreach (var drawingToPublish in drawingsToPublish)
     {
       if (options.IsPastCutoff(DateTimeOffset.UtcNow))
@@ -173,35 +171,45 @@ public sealed class Plant3dAutomationService(
     }
   }
 
-  private bool IsMappingValid(IReadOnlyList<DrawingModelMapping> mappings)
+  private IReadOnlyList<MappingIssue> ValidateMappings(
+    string mappingsPath,
+    IReadOnlyList<DrawingModelMapping> mappings,
+    IReadOnlyList<Plant3dProjectDrawing> projectDrawings
+  )
   {
-    var accountIds = mappings.Select(m => m.AccountId).ToHashSet();
-    if (accountIds.Count != 1)
+    var issues = Plant3dMappingValidator.Validate(mappings, projectDrawings);
+    foreach (var issue in issues)
     {
-      logger.LogWarning("Mappings contain multiple account IDs.");
-      return false;
+      var level = issue.Severity == MappingIssueSeverity.Error ? LogLevel.Error : LogLevel.Warning;
+      logger.Log(level, "Mapping issue ({kind}): {message}", issue.Kind, issue.Message);
     }
 
-    if (string.IsNullOrWhiteSpace(accountIds.First()))
-    {
-      logger.LogWarning("Mapping contains an empty account ID.");
-      return false;
-    }
+    var errorCount = issues.Count(i => i.Severity == MappingIssueSeverity.Error);
+    return errorCount == 0
+      ? issues
+      : throw new Plant3dConfigException(
+        $"The drawing model mappings file '{mappingsPath}' has {errorCount} error(s). See the log for details."
+      );
+  }
 
-    var serverUrls = mappings.Select(m => m.ServerUrl).ToHashSet();
-    if (serverUrls.Count != 1)
+  /// <summary>
+  /// Results for drawings skipped because the mappings and the project are out of sync.
+  /// Reported as skipped, not failed.
+  /// </summary>
+  private static IEnumerable<Plant3dAutomationPublishResult> GetMappingDriftResults(IReadOnlyList<MappingIssue> issues)
+  {
+    foreach (var issue in issues)
     {
-      logger.LogWarning("Mappings contain multiple server URLs.");
-      return false;
+      switch (issue.Kind)
+      {
+        case MappingIssueKind.MappingWithoutDrawing:
+          yield return Plant3dAutomationPublishResult.MappingWithoutDrawing(issue.DrawingGuid, issue.DrawingPath);
+          break;
+        case MappingIssueKind.DrawingWithoutMapping:
+          yield return Plant3dAutomationPublishResult.DrawingWithoutMapping(issue.DrawingGuid, issue.DrawingPath);
+          break;
+      }
     }
-
-    if (string.IsNullOrWhiteSpace(serverUrls.First().OriginalString))
-    {
-      logger.LogWarning("Mapping contains an empty server URL.");
-      return false;
-    }
-
-    return true;
   }
 
   private string? GetAccountId(DrawingModelMapping mapping)
@@ -235,7 +243,7 @@ public sealed class Plant3dAutomationService(
     return account.id;
   }
 
-  private IEnumerable<DrawingToPublish> MapDrawingsToModels(
+  private static IEnumerable<DrawingToPublish> MapDrawingsToModels(
     IEnumerable<Plant3dProjectDrawing> drawings,
     IEnumerable<DrawingModelMapping> mappings,
     string accountId
@@ -259,11 +267,6 @@ public sealed class Plant3dAutomationService(
           mapping.ServerUrl,
           mapping.AlwaysPublish
         );
-      }
-      else
-      {
-        // No mapping configured for this drawing; nothing to publish.
-        logger.LogWarning("Skip publish of '{name}' no mapping for '{guid}'.", drawing.Name, drawing.DrawingGuid);
       }
     }
   }

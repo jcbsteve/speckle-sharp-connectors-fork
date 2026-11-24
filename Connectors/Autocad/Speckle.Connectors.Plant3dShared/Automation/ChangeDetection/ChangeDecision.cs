@@ -13,6 +13,12 @@ public enum PublishReason
   ServerCheckFailed,
   Unchanged,
   AlreadyPublishedInRun,
+
+  /// <summary>The mapping refers to a drawing that is not in the current project.</summary>
+  MappingWithoutDrawing,
+
+  /// <summary>The project drawing has no mapping.</summary>
+  DrawingWithoutMapping,
 }
 
 /// <summary>

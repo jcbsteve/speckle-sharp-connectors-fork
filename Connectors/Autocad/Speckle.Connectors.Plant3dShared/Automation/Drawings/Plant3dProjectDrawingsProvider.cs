@@ -1,3 +1,4 @@
+using Autodesk.ProcessPower.PlantInstance;
 using Autodesk.ProcessPower.ProjectManager;
 using Microsoft.Extensions.Logging;
 
@@ -12,13 +13,8 @@ public sealed class Plant3dProjectDrawingsProvider(ILogger<Plant3dProjectDrawing
 {
   public IReadOnlyList<Plant3dProjectDrawing> GetProjectDrawings()
   {
-    var currentProjectPart =
-      PnPProjectUtils.GetProjectPartForCurrentDocument()
-      ?? throw new InvalidOperationException("No Plant 3D project part could be resolved for the current document.");
-
     var plantProject =
-      currentProjectPart.OwnerPlantProject
-      ?? throw new InvalidOperationException("The current project part is not associated with a Plant 3D project.");
+      PlantApplication.CurrentProject ?? throw new InvalidOperationException("No Plant 3D project is open.");
 
     if (plantProject.DocumentService.IsLocalPlantProjectOutOfSync(plantProject))
     {
@@ -30,9 +26,6 @@ public sealed class Plant3dProjectDrawingsProvider(ILogger<Plant3dProjectDrawing
     {
       foreach (PnPProjectDrawing drawing in part.GetPnPDrawingFiles())
       {
-        // TODO investigate file versions to detect changes and only publish if new e.g.
-        // var latest = plantProject.DocumentService.GetLatestDocumentVersion(drawing).Document.ModDate;
-
         var isSame = plantProject.DocumentService.IsLocalFileTheSame(drawing);
         if (!isSame)
         {

@@ -123,6 +123,10 @@ $exitCode = switch ($true) {
 
 Write-Output "Status: $status (exit code $exitCode)"
 if ($null -ne $result) {
+    $c = $result.counts
+    if ($c.mappingsWithoutDrawing -gt 0 -or $c.drawingsWithoutMapping -gt 0) {
+        Write-Output "Warning: mappings out of sync - $($c.mappingsWithoutDrawing) mapping(s) without drawing, $($c.drawingsWithoutMapping) drawing(s) without mapping. See log."
+    }
     foreach ($failure in $result.failures) {
         Write-Output "  $($failure.failureKind): $($failure.path) - $($failure.error)"
     }

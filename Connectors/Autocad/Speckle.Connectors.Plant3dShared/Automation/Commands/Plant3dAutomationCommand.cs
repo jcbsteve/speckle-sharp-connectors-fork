@@ -2,6 +2,7 @@ using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Speckle.Connectors.Autocad.Plugin;
 using Speckle.Connectors.Common;
 using Speckle.Connectors.Plant3dShared.Automation.Logging;
@@ -28,9 +29,10 @@ public class Plant3dAutomationCommand
   [CommandMethod(COMMAND_STRING)]
   public async void Command()
   {
-    var logger = BuildContainer();
+    ILogger logger = NullLogger.Instance;
     try
     {
+      logger = BuildContainer();
       PromptForForce();
       await PublishAndLogAsync(logger);
     }
@@ -46,38 +48,46 @@ public class Plant3dAutomationCommand
     {
       logger.LogError(exception, "Speckle publish failed.");
     }
+    finally
+    {
+      Container?.Dispose();
+      Container = null;
+    }
   }
 
   // Session context is needed to close documents when the publish has finished.
   [CommandMethod(BATCH_COMMAND_STRING, CommandFlags.Session)]
   public async void BatchCommand()
   {
-    var logger = BuildContainer();
-    var options = Container!.GetRequiredService<Plant3dPublishOptions>();
-    options.AllowPrompts = false;
-    if (options.ApplyDefaultBatchDeadline(DateTimeOffset.UtcNow))
-    {
-      logger.LogWarning(
-        "{envVar} not set. Using a default deadline of {minutes} minutes.",
-        Plant3dPublishOptions.DEADLINE_ENV_VAR,
-        Plant3dPublishOptions.DefaultBatchTimeout.TotalMinutes
-      );
-    }
-    logger.LogInformation(
-      "Publish started. Run: {runId}, force: {force}, deadline: {deadline}, drawing retries: {retries}.",
-      options.RunId,
-      options.Force,
-      options.DeadlineUtc?.ToString("O") ?? "none",
-      options.DrawingRetries
-    );
-
+    ILogger logger = NullLogger.Instance;
+    Plant3dPublishOptions? options = null;
     var startedUtc = DateTimeOffset.UtcNow;
     IReadOnlyList<Plant3dAutomationPublishResult> results = [];
     string? configError = null;
     // An unexpected error leaves no result file, so the script reports a crash and retries the run.
     var writeResult = true;
+
     try
     {
+      logger = BuildContainer();
+      options = Container!.GetRequiredService<Plant3dPublishOptions>();
+      options.AllowPrompts = false;
+      if (options.ApplyDefaultBatchDeadline(DateTimeOffset.UtcNow))
+      {
+        logger.LogWarning(
+          "{envVar} not set. Using a default deadline of {minutes} minutes.",
+          Plant3dPublishOptions.DEADLINE_ENV_VAR,
+          Plant3dPublishOptions.DefaultBatchTimeout.TotalMinutes
+        );
+      }
+      logger.LogInformation(
+        "Publish started. Run: {runId}, force: {force}, deadline: {deadline}, drawing retries: {retries}.",
+        options.RunId,
+        options.Force,
+        options.DeadlineUtc?.ToString("O") ?? "none",
+        options.DrawingRetries
+      );
+
       results = await PublishAndLogAsync(logger);
     }
     catch (Plant3dConfigException exception)
@@ -92,11 +102,12 @@ public class Plant3dAutomationCommand
     }
     finally
     {
-      if (writeResult)
+      if (writeResult && options is not null)
       {
         WriteResultFile(logger, Plant3dRunResult.Create(options, startedUtc, results, configError));
       }
-
+      Container?.Dispose();
+      Container = null;
       QuitPlant3d(logger);
     }
   }
@@ -137,7 +148,7 @@ public class Plant3dAutomationCommand
     var results = await automationService.PublishAsync();
     foreach (var result in results)
     {
-      if (result.IsUnchanged || result.IsAlreadyPublishedInRun)
+      if (result.IsUnchanged || result.IsAlreadyPublishedInRun || result.IsMappingDrift)
       {
         logger.LogInformation("{reason} '{path}', not published.", result.Reason, result.DrawingPath);
       }
@@ -161,13 +172,8 @@ public class Plant3dAutomationCommand
     }
 
     logger.LogInformation(
-      "Publish summary: {published} published, {unchanged} unchanged, {alreadyPublished} already published in run, "
-        + "{failed} failed, {cancelled} cancelled. Force: {force}.",
-      results.Count(r => r.Executed && r.Succeeded),
-      results.Count(r => r.IsUnchanged),
-      results.Count(r => r.IsAlreadyPublishedInRun),
-      results.Count(r => r.FailureKind is FailureKind.Transient or FailureKind.Fatal),
-      results.Count(r => r.FailureKind == FailureKind.Cancelled),
+      "Publish summary: {counts}. Force: {force}.",
+      Plant3dRunCounts.From(results),
       Container!.GetRequiredService<Plant3dPublishOptions>().Force
     );
 
