@@ -3,7 +3,10 @@
   ;; Read environment variables
   (setq project (getenv "PLANT_PROJECT"))
   (setq mappings (getenv "PLANT_DRAWING_MAPPINGS"))
- 
+  ;; pub.ps1 sets -SPECKLELIST to only write the drawing inventory.
+  (setq batchCommand (getenv "PLANT_BATCH_COMMAND"))
+  (if (not batchCommand) (setq batchCommand "-SPECKLEPUBLISH"))
+
   (if (and project mappings)
     (progn
       (princ (strcat "\nProject=" project))
@@ -13,8 +16,8 @@
       (command "-openproject" project)
       (command "-openproject" project)
 
-      ;; The batch command writes the result file and closes Plant 3D when it finishes.
-      (command "-SPECKLEPUBLISH")
+      ;; The batch command writes its output file and closes Plant 3D when it finishes.
+      (command batchCommand)
     )
     ;; Else print out the missing variables
     (progn
