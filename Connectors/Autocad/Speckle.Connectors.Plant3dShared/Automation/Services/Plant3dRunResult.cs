@@ -56,7 +56,7 @@ public sealed record Plant3dRunResult(
   string? Error = null
 )
 {
-  private static readonly JsonSerializerOptions s_jsonOptions = new()
+  internal static readonly JsonSerializerOptions JsonOptions = new()
   {
     WriteIndented = true,
     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -100,10 +100,32 @@ public sealed record Plant3dRunResult(
   }
 
   /// <summary>Writes to a temporary file and renames it, so the script never reads a half-written file.</summary>
-  public void Write(string path)
+  public void Write(string path) => WriteJson(path, this);
+
+  /// <summary>Writes to a temporary file and renames it, so the script never reads a half-written file.</summary>
+  internal static void WriteJson<T>(string path, T value)
   {
     var tempPath = path + ".tmp";
-    File.WriteAllText(tempPath, JsonSerializer.Serialize(this, s_jsonOptions));
+    File.WriteAllText(tempPath, JsonSerializer.Serialize(value, JsonOptions));
     File.Move(tempPath, path, overwrite: true);
+  }
+}
+
+/// <summary>
+/// The live drawing inventory of the open Plant 3D project, read by the drawing-to-model mapper.
+/// </summary>
+public sealed record Plant3dDrawingInventory(
+  int Schema,
+  string ProjectName,
+  DateTimeOffset GeneratedUtc,
+  IReadOnlyList<Plant3dProjectDrawing> Drawings
+)
+{
+  /// <summary>Writes the inventory of the given drawings to the run's inventory file and returns its path.</summary>
+  public static string Write(string runId, string projectName, IReadOnlyList<Plant3dProjectDrawing> drawings)
+  {
+    var path = Logging.FileLoggerProvider.GetInventoryFilePath(runId);
+    Plant3dRunResult.WriteJson(path, new Plant3dDrawingInventory(1, projectName, DateTimeOffset.UtcNow, drawings));
+    return path;
   }
 }

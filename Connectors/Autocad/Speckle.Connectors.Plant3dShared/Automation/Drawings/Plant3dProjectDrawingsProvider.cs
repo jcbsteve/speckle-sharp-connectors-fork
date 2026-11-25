@@ -11,10 +11,11 @@ namespace Speckle.Connectors.Plant3dShared.Automation;
 public sealed class Plant3dProjectDrawingsProvider(ILogger<Plant3dProjectDrawingsProvider> logger)
   : IPlant3dProjectDrawingsProvider
 {
-  public IReadOnlyList<Plant3dProjectDrawing> GetProjectDrawings()
+  public string GetProjectName() => GetCurrentProject().Name;
+
+  public IReadOnlyList<Plant3dProjectDrawing> GetProjectDrawings(bool syncOutOfDate = true)
   {
-    var plantProject =
-      PlantApplication.CurrentProject ?? throw new InvalidOperationException("No Plant 3D project is open.");
+    var plantProject = GetCurrentProject();
 
     if (plantProject.DocumentService.IsLocalPlantProjectOutOfSync(plantProject))
     {
@@ -26,11 +27,10 @@ public sealed class Plant3dProjectDrawingsProvider(ILogger<Plant3dProjectDrawing
     {
       foreach (PnPProjectDrawing drawing in part.GetPnPDrawingFiles())
       {
-        var isSame = plantProject.DocumentService.IsLocalFileTheSame(drawing);
-        if (!isSame)
+        if (syncOutOfDate && !plantProject.DocumentService.IsLocalFileTheSame(drawing))
         {
           logger.LogInformation("Downloading drawing '{name}'", drawing.Name);
-          plantProject.DocumentService.DownloadHeadRevision(part, true, true, SyncHandler, out var _);
+          plantProject.DocumentService.DownloadHeadRevision(part, false, true, SyncHandler, out var _);
         }
 
         var localPath = Path.Combine(plantProject.ProjectFolderPath, drawing.RelativeFileName);
@@ -38,12 +38,17 @@ public sealed class Plant3dProjectDrawingsProvider(ILogger<Plant3dProjectDrawing
         {
           throw new InvalidOperationException($"The drawing '{drawing.Name}' has an invalid GUID: '{drawing.Guid}'.");
         }
-        drawings.Add(new Plant3dProjectDrawing(drawingGuid, drawing.Name, localPath));
+        drawings.Add(
+          new Plant3dProjectDrawing(drawingGuid, drawing.Name, localPath, drawing.RelativeFileName, part.ProjectName)
+        );
       }
     }
 
     return drawings;
   }
+
+  private static PlantProject GetCurrentProject() =>
+    PlantApplication.CurrentProject ?? throw new InvalidOperationException("No Plant 3D project is open.");
 
   // Need to monitor this and understand how to handle any conflicts that arise
   private void SyncHandler(SyncType type, SyncConflictsResolution _) =>

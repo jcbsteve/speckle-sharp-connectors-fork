@@ -31,6 +31,20 @@ public sealed class Plant3dAutomationService(
   /// <exception cref="Plant3dConfigException">The mappings, account or project are invalid.</exception>
   public async Task<IReadOnlyList<Plant3dAutomationPublishResult>> PublishAsync()
   {
+    // Enumerate and record the inventory first, so the mapper gets it even when the mappings are invalid.
+    var projectDrawings = drawingsProvider.GetProjectDrawings();
+    if (projectDrawings.Count == 0)
+    {
+      throw new Plant3dConfigException("No drawings found in the current Plant 3D project.");
+    }
+
+    var inventoryPath = Plant3dDrawingInventory.Write(
+      options.RunId,
+      drawingsProvider.GetProjectName(),
+      projectDrawings
+    );
+    logger.LogInformation("Drawing inventory written to '{path}'.", inventoryPath);
+
     var mappingsPath =
       mappingResolver.GetMappingsPath()
       ?? throw new Plant3dConfigException("No drawing model mappings path specified.");
@@ -41,12 +55,6 @@ public sealed class Plant3dAutomationService(
     if (mappings.Count == 0)
     {
       throw new Plant3dConfigException($"The drawing model mappings file '{mappingsPath}' contains no mappings.");
-    }
-
-    var projectDrawings = drawingsProvider.GetProjectDrawings();
-    if (projectDrawings.Count == 0)
-    {
-      throw new Plant3dConfigException("No drawings found in the current Plant 3D project.");
     }
 
     var issues = ValidateMappings(mappingsPath, mappings, projectDrawings);

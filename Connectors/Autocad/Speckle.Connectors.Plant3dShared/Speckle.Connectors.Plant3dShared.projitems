@@ -51,6 +51,7 @@
     <Compile Include="$(MSBuildThisFileDirectory)Operations\Send\Plant3dArtifactRootObjectBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Operations\Send\Plant3dRootObjectBuilder.cs" />
     <Compile Include="$(MSBuildThisFileDirectory)Bindings\Plant3dSendBinding.cs" />
+    <None Include="$(MSBuildThisFileDirectory)Automation\specs\plant3d-mapping-options.md" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="$(MSBuildThisFileDirectory)Automation\Commands\" />

@@ -26,6 +26,12 @@ public sealed class FileLoggerProvider(Plant3dPublishOptions options) : ILoggerP
   public static string GetResultFilePath(string runId) =>
     Path.Combine(GetLogsDirectory(), $"plant3d-automation-{runId}.result.json");
 
+  /// <summary>
+  /// Returns the path of the drawing inventory file for the run, next to its log file.
+  /// </summary>
+  public static string GetInventoryFilePath(string runId) =>
+    Path.Combine(GetLogsDirectory(), $"plant3d-automation-{runId}.drawings.json");
+
   private static string GetLogsDirectory() =>
     Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Speckle", "Logs");
 

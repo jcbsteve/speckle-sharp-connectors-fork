@@ -24,6 +24,7 @@ public class Plant3dAutomationCommand
 {
   public const string COMMAND_STRING = "SpecklePublish";
   public const string BATCH_COMMAND_STRING = "-SpecklePublish";
+  public const string LIST_COMMAND_STRING = "-SpeckleList";
   public ServiceProvider? Container { get; private set; }
 
   [CommandMethod(COMMAND_STRING)]
@@ -106,6 +107,37 @@ public class Plant3dAutomationCommand
       {
         WriteResultFile(logger, Plant3dRunResult.Create(options, startedUtc, results, configError));
       }
+      Container?.Dispose();
+      Container = null;
+      QuitPlant3d(logger);
+    }
+  }
+
+  /// <summary>
+  /// Writes the run's drawing inventory without downloading or publishing any drawing, then closes Plant 3D.
+  /// </summary>
+  [CommandMethod(LIST_COMMAND_STRING, CommandFlags.Session)]
+  public void ListDrawingsCommand()
+  {
+    ILogger logger = NullLogger.Instance;
+    try
+    {
+      logger = BuildContainer();
+      var drawingsProvider = Container!.GetRequiredService<IPlant3dProjectDrawingsProvider>();
+      var drawings = drawingsProvider.GetProjectDrawings(syncOutOfDate: false);
+      var path = Plant3dDrawingInventory.Write(
+        Container!.GetRequiredService<Plant3dPublishOptions>().RunId,
+        drawingsProvider.GetProjectName(),
+        drawings
+      );
+      logger.LogInformation("Drawing inventory of {count} drawings written to '{path}'.", drawings.Count, path);
+    }
+    catch (System.Exception exception)
+    {
+      logger.LogError(exception, "Speckle drawing inventory failed.");
+    }
+    finally
+    {
       Container?.Dispose();
       Container = null;
       QuitPlant3d(logger);
