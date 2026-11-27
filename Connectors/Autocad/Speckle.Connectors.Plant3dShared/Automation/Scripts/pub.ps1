@@ -18,7 +18,9 @@ param(
     [ValidateRange(0, 10)]
     [Nullable[int]]$DrawingRetries,
     [string]$MapperPath,
-    [Nullable[bool]]$RemapOnDrift
+    [Nullable[bool]]$RemapOnDrift,
+    [string]$MapperConfig,
+    [string]$MapperDefaults
 )
 
 $ErrorActionPreference = 'Stop'
@@ -38,6 +40,10 @@ $defaultDrawingRetries = $null
 $defaultMapperPath = "C:\git\SpecklePoc\SpeckleModelSync\bin\Debug\net10.0\SpeckleModelSync.exe"
 # $true remaps and publishes again when the run finds drawings without a mapping.
 $defaultRemapOnDrift = $true
+# Publish set file the mapper reads the Speckle project from. Its plant.mappingsPath must match the mappings above.
+$defaultMapperConfig = $null
+# Optional machine defaults file for the publish set. $null = the mapper's PUBLISH_DEFAULTS_PATH setting.
+$defaultMapperDefaults = $null
 # ===============================================================================
 
 # Parameters win; otherwise use the settings above.
@@ -48,9 +54,11 @@ $publishForce = if ($PSBoundParameters.ContainsKey('Force')) { $Force.IsPresent 
 $retryCount = if ($PSBoundParameters.ContainsKey('DrawingRetries')) { $DrawingRetries } else { $defaultDrawingRetries }
 $mapperExe = if ($MapperPath) { $MapperPath } else { $defaultMapperPath }
 $remap = if ($null -ne $RemapOnDrift) { $RemapOnDrift } else { $defaultRemapOnDrift }
+$mapperConfig = if ($MapperConfig) { $MapperConfig } else { $defaultMapperConfig }
+$mapperDefaults = if ($MapperDefaults) { $MapperDefaults } else { $defaultMapperDefaults }
 
 # The mappings file may be missing when the mapper can create it.
-$requiredFiles = @($acadExe, $plantProject) + $(if ($mapperExe) { $mapperExe } else { $drawingMappings })
+$requiredFiles = @($acadExe, $plantProject) + $(if ($mapperExe) { @($mapperExe, $mapperConfig) } else { $drawingMappings })
 foreach ($path in $requiredFiles) {
     if ([string]::IsNullOrWhiteSpace($path) -or -not (Test-Path -LiteralPath $path -PathType Leaf)) {
         Write-Output "Status: ConfigError (exit code 4)"
@@ -104,7 +112,9 @@ function Invoke-Mapper {
     }
     $before = if (Test-Path -LiteralPath $drawingMappings) { (Get-FileHash -LiteralPath $drawingMappings).Hash }
     Write-Host "Updating mappings from '$inventoryPath'."
-    & $mapperExe --inventory $inventoryPath --out $drawingMappings | ForEach-Object { Write-Host "  $_" }
+    $mapperArgs = @('--config', $mapperConfig, '--inventory', $inventoryPath)
+    if ($mapperDefaults) { $mapperArgs += @('--defaults', $mapperDefaults) }
+    & $mapperExe @mapperArgs | ForEach-Object { Write-Host "  $_" }
     if ($LASTEXITCODE -ne 0) {
         Write-Host "Mapper failed with exit code $LASTEXITCODE. Mappings not updated."
         return $false
